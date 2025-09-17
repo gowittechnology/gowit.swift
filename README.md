@@ -21,7 +21,7 @@ Add the following dependency to your `Package.swift` file:
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/gowittechnology/gowit-swift.git", from: "1.0.1")
+    .package(url: "https://github.com/gowittechnology/gowit-swift.git", from: "1.0.2")
 ]
 ```
 
@@ -723,7 +723,7 @@ Conditional rendering component that only shows when ads are available.
 
 ## Requirements
 
-- iOS 15.0+
+- iOS 14.0+
 - Swift 5.5+
 
 ## Support

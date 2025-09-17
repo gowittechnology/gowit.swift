@@ -35,30 +35,41 @@ public struct SponsoredProductView: View {
             // Product Image
             Group {
                 if let imageUrl = imageUrl, let url = URL(string: imageUrl) {
-                    AsyncImage(url: url) { phase in
-                        switch phase {
-                        case .empty:
-                            Rectangle()
-                                .fill(Color.gray.opacity(0.2))
-                                .aspectRatio(1, contentMode: .fit)
-                        case .success(let image):
-                            image
-                                .resizable()
-                                .aspectRatio(contentMode: .fit)
-                        case .failure:
-                            Rectangle()
-                                .fill(Color.gray.opacity(0.3))
-                                .aspectRatio(1, contentMode: .fit)
-                                .overlay(
-                                    Image(systemName: "photo")
-                                        .foregroundColor(.gray)
-                                )
-                        @unknown default:
-                            Rectangle()
-                                .fill(Color.gray.opacity(0.2))
-                                .aspectRatio(1, contentMode: .fit)
+                    if #available(iOS 15, *) {
+                        AsyncImage(url: url) { phase in
+                            switch phase {
+                            case .empty:
+                                Rectangle()
+                                    .fill(Color.gray.opacity(0.2))
+                                    .aspectRatio(1, contentMode: .fit)
+                            case .success(let image):
+                                image
+                                    .resizable()
+                                    .aspectRatio(contentMode: .fit)
+                            case .failure:
+                                Rectangle()
+                                    .fill(Color.gray.opacity(0.3))
+                                    .aspectRatio(1, contentMode: .fit)
+                                    .overlay(
+                                        Image(systemName: "photo")
+                                            .foregroundColor(.gray)
+                                    )
+                            @unknown default:
+                                Rectangle()
+                                    .fill(Color.gray.opacity(0.2))
+                                    .aspectRatio(1, contentMode: .fit)
+                            }
                         }
+                    } else {
+                        Rectangle()
+                            .fill(Color.gray.opacity(0.2))
+                            .aspectRatio(1, contentMode: .fit)
+                            .overlay(
+                                Image(systemName: "photo")
+                                    .foregroundColor(.gray)
+                            )
                     }
+
                 } else {
                     Rectangle()
                         .fill(Color.gray.opacity(0.2))

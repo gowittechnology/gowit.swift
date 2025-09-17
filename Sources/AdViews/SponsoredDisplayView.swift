@@ -142,55 +142,58 @@ public struct AdImageView: View {
     public var body: some View {
         Group {
             if let imgUrl = ad.imgUrl, let url = URL(string: imgUrl) {
-                AsyncImage(url: url) { phase in
-                    switch phase {
-                    case .empty:
-                        // Placeholder that maintains layout
-                        Rectangle()
-                            .fill(Color.clear)
-                            .aspectRatio(16/9, contentMode: .fit) // Default aspect ratio
-                    case .success(let image):
-                        image
-                            .resizable()
-                            .aspectRatio(contentMode: .fit)
-                    case .failure:
-                        // Error state that maintains layout
-                        Rectangle()
-                            .fill(Color.gray.opacity(0.3))
-                            .aspectRatio(16/9, contentMode: .fit)
-                    @unknown default:
-                        Rectangle()
-                            .fill(Color.clear)
-                            .aspectRatio(16/9, contentMode: .fit)
-                    }
-                }
-                .onAppear {
-                    if !hasReportedImpression {
-                        reportImpression()
-                    }
-                }
-                .onTapGesture {
-                    if isClickable {
-                        reportClick()
-                        if let redirectUrl = ad.redirect?.url, let url = URL(string: redirectUrl) {
-                            #if os(iOS) || os(tvOS)
-                            UIApplication.shared.open(url)
-                            #elseif os(macOS)
-                            NSWorkspace.shared.open(url)
-                            #endif
+                if #available(iOS 15, *) {
+                    AsyncImage(url: url) { phase in
+                        switch phase {
+                        case .empty:
+                            // Placeholder that maintains layout
+                            Rectangle()
+                                .fill(Color.clear)
+                                .aspectRatio(16/9, contentMode: .fit) // Default aspect ratio
+                        case .success(let image):
+                            image
+                                .resizable()
+                                .aspectRatio(contentMode: .fit)
+                        case .failure:
+                            // Error state that maintains layout
+                            Rectangle()
+                                .fill(Color.gray.opacity(0.3))
+                                .aspectRatio(16/9, contentMode: .fit)
+                        @unknown default:
+                            Rectangle()
+                                .fill(Color.clear)
+                                .aspectRatio(16/9, contentMode: .fit)
                         }
                     }
-                }
-            } else {
-                // No image available - maintain layout with placeholder
-                Rectangle()
-                    .fill(Color.gray.opacity(0.2))
-                    .aspectRatio(16/9, contentMode: .fit)
                     .onAppear {
                         if !hasReportedImpression {
                             reportImpression()
                         }
                     }
+                    .onTapGesture {
+                        if isClickable {
+                            reportClick()
+                            if let redirectUrl = ad.redirect?.url, let url = URL(string: redirectUrl) {
+                                #if os(iOS) || os(tvOS)
+                                UIApplication.shared.open(url)
+                                #elseif os(macOS)
+                                NSWorkspace.shared.open(url)
+                                #endif
+                            }
+                        }
+                    }
+                } else {
+                    Rectangle()
+                        .fill(Color.gray.opacity(0.2))
+                        .aspectRatio(16/9, contentMode: .fit)
+
+                }
+
+            } else {
+                // No image available - maintain layout with placeholder
+                Rectangle()
+                    .fill(Color.gray.opacity(0.2))
+                    .aspectRatio(16/9, contentMode: .fit)
             }
         }
     }
