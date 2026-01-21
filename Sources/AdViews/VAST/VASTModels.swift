@@ -82,13 +82,17 @@ public struct VASTInLine: Sendable {
     /// Creative elements
     public let creatives: [VASTCreative]
     
+    /// Product extensions from VAST response
+    public let extensions: [VASTProduct]
+    
     public init(
         adSystem: VASTAdSystem? = nil,
         adTitle: String? = nil,
         impressions: [VASTImpression] = [],
         errors: [String] = [],
         viewableImpression: VASTViewableImpression? = nil,
-        creatives: [VASTCreative] = []
+        creatives: [VASTCreative] = [],
+        extensions: [VASTProduct] = []
     ) {
         self.adSystem = adSystem
         self.adTitle = adTitle
@@ -96,6 +100,61 @@ public struct VASTInLine: Sendable {
         self.errors = errors
         self.viewableImpression = viewableImpression
         self.creatives = creatives
+        self.extensions = extensions
+    }
+}
+
+// MARK: - VAST Product Extension
+
+/// Product information from VAST Extensions
+public struct VASTProduct: Sendable {
+    /// Advertiser identifier
+    public let advertiserID: String?
+    
+    /// Brand name
+    public let brand: String?
+    
+    /// Product image URL
+    public let imageURL: String?
+    
+    /// Product name
+    public let name: String?
+    
+    /// Product detail page URL
+    public let pdpURL: String?
+    
+    /// Product price
+    public let price: Double?
+    
+    /// Product rating
+    public let rating: Double?
+    
+    /// Product SKU
+    public let sku: String?
+    
+    /// Stock count
+    public let stockCount: Int?
+    
+    public init(
+        advertiserID: String? = nil,
+        brand: String? = nil,
+        imageURL: String? = nil,
+        name: String? = nil,
+        pdpURL: String? = nil,
+        price: Double? = nil,
+        rating: Double? = nil,
+        sku: String? = nil,
+        stockCount: Int? = nil
+    ) {
+        self.advertiserID = advertiserID
+        self.brand = brand
+        self.imageURL = imageURL
+        self.name = name
+        self.pdpURL = pdpURL
+        self.price = price
+        self.rating = rating
+        self.sku = sku
+        self.stockCount = stockCount
     }
 }
 

@@ -301,6 +301,8 @@ final class VideoAdViewModel: ObservableObject {
     private var firedProgress: Set<TimeInterval> = []
     private var timeObserver: Any?
     private var endObserver: NSObjectProtocol?
+    private var statusObserver: NSKeyValueObservation?
+    private var pendingPlay = false
     
     // MARK: - Initialization
     
@@ -388,20 +390,50 @@ final class VideoAdViewModel: ObservableObject {
             guard let self = self else { return }
             
             do {
+                log("Fetching VAST from: \(self.vastURL)")
                 let response = try await self.parser.fetchAndParse(
                     url: self.vastURL,
                     maxWrapperDepth: self.configuration.maxWrapperDepth,
                     timeout: self.configuration.requestTimeout
                 )
                 
-                guard let ad = response.firstAd,
-                      let inLine = ad.inLine,
-                      let creative = inLine.creatives.first,
-                      let linear = creative.linear,
-                      let mediaFile = linear.bestMediaFile(),
-                      let videoURL = URL(string: mediaFile.url) else {
+                log("VAST parsed - Ads count: \(response.ads.count)")
+                
+                guard let ad = response.firstAd else {
+                    log("Error: No ad found in response")
                     throw VASTError.noAdsFound
                 }
+                log("Ad ID: \(ad.id)")
+                
+                guard let inLine = ad.inLine else {
+                    log("Error: No InLine in ad")
+                    throw VASTError.noAdsFound
+                }
+                log("InLine - Extensions: \(inLine.extensions.count), Creatives: \(inLine.creatives.count)")
+                
+                guard let creative = inLine.creatives.first else {
+                    log("Error: No creatives found")
+                    throw VASTError.noAdsFound
+                }
+                log("Creative ID: \(creative.id ?? "nil")")
+                
+                guard let linear = creative.linear else {
+                    log("Error: No linear in creative")
+                    throw VASTError.noAdsFound
+                }
+                log("Linear - Duration: \(linear.duration ?? 0)s, MediaFiles: \(linear.mediaFiles.count)")
+                
+                guard let mediaFile = linear.bestMediaFile() else {
+                    log("Error: No suitable media file found")
+                    throw VASTError.invalidMediaFile
+                }
+                log("MediaFile - URL: \(mediaFile.url), Type: \(mediaFile.type ?? "nil"), Size: \(mediaFile.width ?? 0)x\(mediaFile.height ?? 0)")
+                
+                guard let videoURL = URL(string: mediaFile.url) else {
+                    log("Error: Invalid video URL: \(mediaFile.url)")
+                    throw VASTError.invalidURL(mediaFile.url)
+                }
+                log("Video URL valid: \(videoURL)")
                 
                 await MainActor.run {
                     self.currentAd = ad
@@ -411,22 +443,22 @@ final class VideoAdViewModel: ObservableObject {
                     self.eventTracker.fireImpressions(inLine.impressions)
                     
                     // Setup player
+                    log("Setting up player...")
                     self.setupPlayer(with: videoURL)
                     
                     self.onAdLoaded?(ad)
                     self.updateState(.ready)
-                    
-                    // Auto-play if visible
-                    if self.isVisible && self.configuration.autoPlay {
-                        self.play()
-                    }
+                    log("State updated to .ready, isVisible: \(self.isVisible)")
+                    // Note: Auto-play is handled in createPlayer() after async URL resolution
                 }
                 
             } catch let error as VASTError {
+                log("VAST Error: \(error.localizedDescription)")
                 await MainActor.run {
                     self.handleError(error)
                 }
             } catch {
+                log("Unknown Error: \(error.localizedDescription)")
                 await MainActor.run {
                     self.handleError(.unknown(error.localizedDescription))
                 }
@@ -435,9 +467,146 @@ final class VideoAdViewModel: ObservableObject {
     }
     
     private func setupPlayer(with url: URL) {
-        let playerItem = AVPlayerItem(url: url)
+        log("Preparing video from URL...")
+        
+        // The CDN returns fmp4 without Content-Length header, causing CoreMediaErrorDomain -12939
+        // Workaround: Download to temporary file first, then play from local file
+        Task { [weak self] in
+            guard let self = self else { return }
+            
+            do {
+                // First resolve redirects
+                let finalURL = try await self.resolveRedirects(for: url)
+                
+                // Download to temp file
+                let localURL = try await self.downloadVideoToTemp(from: finalURL)
+                
+                await MainActor.run {
+                    self.createPlayer(with: localURL, isLocalFile: true)
+                }
+            } catch {
+                await MainActor.run {
+                    self.log("Failed to prepare video: \(error.localizedDescription)")
+                    self.handleError(.networkError(error.localizedDescription))
+                }
+            }
+        }
+    }
+    
+    /// Resolve any redirects and return the final URL
+    private func resolveRedirects(for url: URL) async throws -> URL {
+        var request = URLRequest(url: url)
+        request.httpMethod = "HEAD"
+        
+        let (_, response) = try await URLSession.shared.data(for: request)
+        
+        if let finalURL = response.url {
+            log("Resolved URL: \(finalURL.absoluteString.prefix(100))...")
+            return finalURL
+        }
+        
+        return url
+    }
+    
+    /// Download video to temporary file
+    private func downloadVideoToTemp(from url: URL) async throws -> URL {
+        log("Downloading video to temporary file...")
+        
+        let (tempURL, response) = try await URLSession.shared.download(from: url)
+        
+        guard let httpResponse = response as? HTTPURLResponse,
+              (200...299).contains(httpResponse.statusCode) else {
+            throw VASTError.networkError("Failed to download video")
+        }
+        
+        // Move to a more predictable temp location
+        let fileName = "vast_video_\(UUID().uuidString).mp4"
+        let destinationURL = FileManager.default.temporaryDirectory.appendingPathComponent(fileName)
+        
+        // Remove existing file if any
+        try? FileManager.default.removeItem(at: destinationURL)
+        
+        // Move downloaded file
+        try FileManager.default.moveItem(at: tempURL, to: destinationURL)
+        
+        log("Video downloaded to: \(destinationURL.lastPathComponent)")
+        return destinationURL
+    }
+    
+    /// Actually create the player with the resolved URL
+    private func createPlayer(with url: URL, isLocalFile: Bool = false) {
+        log("Creating AVPlayer with \(isLocalFile ? "local file" : "URL"): \(url.lastPathComponent)")
+        
+        // Configure asset with options that work better for streaming CDN content
+        // The issue is fmp4 format without Content-Length header
+        let asset = AVURLAsset(url: url, options: [
+            // Don't require precise duration - allows streaming without full download
+            AVURLAssetPreferPreciseDurationAndTimingKey: false
+        ])
+        
+        // Use asset keys that we need - load them asynchronously
+        let requiredAssetKeys = ["playable", "hasProtectedContent"]
+        
+        // Create player item with automatic asset key loading
+        let playerItem = AVPlayerItem(asset: asset, automaticallyLoadedAssetKeys: requiredAssetKeys)
+        
+        // Set preferred forward buffer duration (in seconds) for streaming
+        playerItem.preferredForwardBufferDuration = 5.0
+        
         let avPlayer = AVPlayer(playerItem: playerItem)
         avPlayer.isMuted = isMuted
+        
+        // Configure player for streaming
+        avPlayer.automaticallyWaitsToMinimizeStalling = true
+        
+        // Observe player item status for streaming videos that need buffering
+        statusObserver = playerItem.observe(\.status, options: [.new, .initial]) { [weak self] item, _ in
+            Task { @MainActor in
+                guard let self = self else { return }
+                
+                switch item.status {
+                case .unknown:
+                    self.log("Player item status: unknown (buffering...)")
+                    
+                case .readyToPlay:
+                    self.log("Player item status: readyToPlay")
+                    // If play was requested while loading, start playing now
+                    if self.pendingPlay {
+                        self.pendingPlay = false
+                        self.log("Starting deferred playback")
+                        self.performPlay()
+                    }
+                    
+                case .failed:
+                    // Get detailed error information
+                    if let error = item.error {
+                        let nsError = error as NSError
+                        self.log("Player item failed:")
+                        self.log("   - Domain: \(nsError.domain)")
+                        self.log("   - Code: \(nsError.code)")
+                        self.log("   - Description: \(nsError.localizedDescription)")
+                        
+                        // Check for underlying error
+                        if let underlyingError = nsError.userInfo[NSUnderlyingErrorKey] as? NSError {
+                            self.log("   - Underlying domain: \(underlyingError.domain)")
+                            self.log("   - Underlying code: \(underlyingError.code)")
+                            self.log("   - Underlying description: \(underlyingError.localizedDescription)")
+                        }
+                        
+                        // Log all user info keys for debugging
+                        for (key, value) in nsError.userInfo {
+                            self.log("   - \(key): \(value)")
+                        }
+                    } else {
+                        self.log("Player item failed with unknown error")
+                    }
+                    self.handleError(.invalidMediaFile)
+                    
+                @unknown default:
+                    self.log("Unknown player item status")
+                }
+            }
+        }
         
         // Observe time for tracking
         let interval = CMTime(seconds: 0.5, preferredTimescale: CMTimeScale(NSEC_PER_SEC))
@@ -458,14 +627,69 @@ final class VideoAdViewModel: ObservableObject {
             }
         }
         
+        // Also observe for playback failures
+        NotificationCenter.default.addObserver(
+            forName: .AVPlayerItemFailedToPlayToEndTime,
+            object: playerItem,
+            queue: .main
+        ) { [weak self] notification in
+            Task { @MainActor in
+                if let error = notification.userInfo?[AVPlayerItemFailedToPlayToEndTimeErrorKey] as? Error {
+                    self?.log("Playback failed to end: \(error.localizedDescription)")
+                }
+            }
+        }
+        
         self.player = avPlayer
+        
+        // Check if we should auto-play now that player is set up
+        log("Player created, checking auto-play conditions...")
+        if self.isVisible && self.configuration.autoPlay {
+            log("Conditions met, requesting play")
+            self.play()
+        }
     }
     
     // MARK: - Playback Control
     
     private func play() {
+        guard let player = player else { 
+            log("Warning: play() called but player is nil")
+            return 
+        }
+        
+        guard let playerItem = player.currentItem else {
+            log("Warning: play() called but player has no currentItem")
+            return
+        }
+        
+        // Check if player item is ready for playback
+        switch playerItem.status {
+        case .readyToPlay:
+            log("Player item ready, starting playback immediately")
+            performPlay()
+            
+        case .unknown:
+            log("Player item not ready yet, deferring playback...")
+            pendingPlay = true
+            // Update state to indicate we're still preparing
+            updateState(.loading)
+            
+        case .failed:
+            log("Player item failed: \(playerItem.error?.localizedDescription ?? "unknown error")")
+            handleError(.invalidMediaFile)
+            
+        @unknown default:
+            log("Unknown player item status, attempting playback anyway")
+            performPlay()
+        }
+    }
+    
+    /// Actually perform playback (called when player item is ready)
+    private func performPlay() {
         guard let player = player else { return }
         
+        log("performPlay() - calling player.play()")
         player.play()
         updateState(.playing)
         
@@ -630,6 +854,11 @@ final class VideoAdViewModel: ObservableObject {
             endObserver = nil
         }
         
+        // Cancel status observer
+        statusObserver?.invalidate()
+        statusObserver = nil
+        pendingPlay = false
+        
         player?.pause()
         player = nil
     }
@@ -651,13 +880,21 @@ struct VideoPlayerRepresentable: UIViewRepresentable {
     
     func makeUIView(context: Context) -> PlayerUIView {
         let view = PlayerUIView()
-        view.player = player
         view.videoGravity = videoGravity
+        if let player = player {
+            view.player = player
+        }
         return view
     }
     
     func updateUIView(_ uiView: PlayerUIView, context: Context) {
-        uiView.player = player
+        // Only update if the player has changed
+        if uiView.playerLayer.player !== player {
+            uiView.player = player
+            // Force a layout update to ensure the video layer displays correctly
+            uiView.setNeedsLayout()
+            uiView.layoutIfNeeded()
+        }
     }
 }
 
@@ -672,12 +909,22 @@ class PlayerUIView: UIView {
     
     var player: AVPlayer? {
         get { playerLayer.player }
-        set { playerLayer.player = newValue }
+        set { 
+            playerLayer.player = newValue
+            // Ensure the layer is visible and properly configured
+            playerLayer.isHidden = false
+        }
     }
     
     var videoGravity: AVLayerVideoGravity {
         get { playerLayer.videoGravity }
         set { playerLayer.videoGravity = newValue }
+    }
+    
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        // Ensure the player layer fills the entire view
+        playerLayer.frame = bounds
     }
 }
 

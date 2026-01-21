@@ -41,10 +41,35 @@ public final class VASTParser: NSObject, XMLParserDelegate, @unchecked Sendable 
     private var notViewable: [String] = []
     private var viewUndetermined: [String] = []
     
+    // Product extension parsing
+    private var products: [VASTProduct] = []
+    private var currentProductAdvertiserID: String?
+    private var currentProductBrand: String?
+    private var currentProductImageURL: String?
+    private var currentProductName: String?
+    private var currentProductPdpURL: String?
+    private var currentProductPrice: Double?
+    private var currentProductRating: Double?
+    private var currentProductSku: String?
+    private var currentProductStockCount: Int?
+    private var isParsingExtensionProduct = false
+    
     private var vastVersion: String = "4.2"
     private var clickThrough: String?
     private var vastAdTagURI: String?
     private var adTitle: String?
+    
+    // Ad element attributes - stored when Ad starts
+    private var currentAdId: String?
+    private var currentAdSequence: Int?
+    
+    // Creative element attributes - stored when Creative starts
+    private var currentCreativeId: String?
+    private var currentCreativeSequence: Int?
+    private var currentCreativeAdId: String?
+    
+    // Linear element attributes - stored when Linear starts
+    private var currentSkipOffset: String?
     
     private var parseError: Error?
     
@@ -290,6 +315,31 @@ public final class VASTParser: NSObject, XMLParserDelegate, @unchecked Sendable 
         vastAdTagURI = nil
         adTitle = nil
         
+        // Reset product parsing state
+        products = []
+        currentProductAdvertiserID = nil
+        currentProductBrand = nil
+        currentProductImageURL = nil
+        currentProductName = nil
+        currentProductPdpURL = nil
+        currentProductPrice = nil
+        currentProductRating = nil
+        currentProductSku = nil
+        currentProductStockCount = nil
+        isParsingExtensionProduct = false
+        
+        // Reset Ad element attributes
+        currentAdId = nil
+        currentAdSequence = nil
+        
+        // Reset Creative element attributes
+        currentCreativeId = nil
+        currentCreativeSequence = nil
+        currentCreativeAdId = nil
+        
+        // Reset Linear element attributes
+        currentSkipOffset = nil
+        
         parseError = nil
     }
     
@@ -305,7 +355,9 @@ public final class VASTParser: NSObject, XMLParserDelegate, @unchecked Sendable 
             vastVersion = attributeDict["version"] ?? "4.2"
             
         case "Ad":
-            // Start a new ad
+            // Start a new ad - save attributes
+            currentAdId = attributeDict["id"] ?? UUID().uuidString
+            currentAdSequence = Int(attributeDict["sequence"] ?? "")
             impressions = []
             errors = []
             creatives = []
@@ -317,6 +369,7 @@ public final class VASTParser: NSObject, XMLParserDelegate, @unchecked Sendable 
             impressions = []
             errors = []
             creatives = []
+            products = []
             
         case "Wrapper":
             impressions = []
@@ -324,12 +377,18 @@ public final class VASTParser: NSObject, XMLParserDelegate, @unchecked Sendable 
             creatives = []
             
         case "Creative":
+            // Save Creative attributes
+            currentCreativeId = attributeDict["id"]
+            currentCreativeSequence = Int(attributeDict["sequence"] ?? "")
+            currentCreativeAdId = attributeDict["adId"]
             trackingEvents = []
             mediaFiles = []
             clickTracking = []
             customClick = []
             
         case "Linear":
+            // Save Linear attributes
+            currentSkipOffset = attributeDict["skipoffset"]
             trackingEvents = []
             mediaFiles = []
             clickTracking = []
@@ -345,6 +404,25 @@ public final class VASTParser: NSObject, XMLParserDelegate, @unchecked Sendable 
             viewable = []
             notViewable = []
             viewUndetermined = []
+            
+        case "Extension":
+            if attributeDict["type"] == "product" {
+                isParsingExtensionProduct = true
+            }
+            
+        case "Product":
+            if isParsingExtensionProduct {
+                // Reset current product properties
+                currentProductAdvertiserID = nil
+                currentProductBrand = nil
+                currentProductImageURL = nil
+                currentProductName = nil
+                currentProductPdpURL = nil
+                currentProductPrice = nil
+                currentProductRating = nil
+                currentProductSku = nil
+                currentProductStockCount = nil
+            }
             
         default:
             break
@@ -369,8 +447,8 @@ public final class VASTParser: NSObject, XMLParserDelegate, @unchecked Sendable 
             response = VASTResponse(version: vastVersion, ads: ads)
             
         case "Ad":
-            let id = currentAttributes["id"] ?? UUID().uuidString
-            let sequence = Int(currentAttributes["sequence"] ?? "")
+            let id = currentAdId ?? UUID().uuidString
+            let sequence = currentAdSequence
             
             if let inLine = currentInLine {
                 let ad = VASTAd(id: id, sequence: sequence, inLine: inLine, wrapper: nil)
@@ -382,6 +460,8 @@ public final class VASTParser: NSObject, XMLParserDelegate, @unchecked Sendable 
             
             currentInLine = nil
             currentWrapper = nil
+            currentAdId = nil
+            currentAdSequence = nil
             
         case "InLine":
             currentInLine = VASTInLine(
@@ -390,7 +470,8 @@ public final class VASTParser: NSObject, XMLParserDelegate, @unchecked Sendable 
                 impressions: impressions,
                 errors: errors,
                 viewableImpression: currentViewableImpression,
-                creatives: creatives
+                creatives: creatives,
+                extensions: products
             )
             currentAdSystem = nil
             currentViewableImpression = nil
@@ -452,22 +533,20 @@ public final class VASTParser: NSObject, XMLParserDelegate, @unchecked Sendable 
             }
             
         case "Creative":
-            let id = currentAttributes["id"]
-            let sequence = Int(currentAttributes["sequence"] ?? "")
-            let adId = currentAttributes["adId"]
-            
             let creative = VASTCreative(
-                id: id,
-                sequence: sequence,
-                adId: adId,
+                id: currentCreativeId,
+                sequence: currentCreativeSequence,
+                adId: currentCreativeAdId,
                 linear: currentLinear
             )
             creatives.append(creative)
             currentLinear = nil
+            currentCreativeId = nil
+            currentCreativeSequence = nil
+            currentCreativeAdId = nil
             
         case "Linear":
-            let skipOffsetStr = currentAttributes["skipoffset"]
-            let skipOffset = skipOffsetStr.flatMap { parseDuration($0) }
+            let skipOffset = currentSkipOffset.flatMap { parseDuration($0) }
             
             let videoClicks = VASTVideoClicks(
                 clickThrough: clickThrough,
@@ -531,6 +610,71 @@ public final class VASTParser: NSObject, XMLParserDelegate, @unchecked Sendable 
                 let tracking = VASTTrackingEvent(event: event, url: content, offset: offset)
                 trackingEvents.append(tracking)
             }
+            
+        // MARK: Product Extension Fields
+        case "AdvertiserID":
+            if isParsingExtensionProduct {
+                currentProductAdvertiserID = content
+            }
+            
+        case "Brand":
+            if isParsingExtensionProduct {
+                currentProductBrand = content
+            }
+            
+        case "ImageURL":
+            if isParsingExtensionProduct {
+                currentProductImageURL = content
+            }
+            
+        case "Name":
+            if isParsingExtensionProduct {
+                currentProductName = content
+            }
+            
+        case "PdpURL":
+            if isParsingExtensionProduct {
+                currentProductPdpURL = content
+            }
+            
+        case "Price":
+            if isParsingExtensionProduct {
+                currentProductPrice = Double(content)
+            }
+            
+        case "Rating":
+            if isParsingExtensionProduct {
+                currentProductRating = Double(content)
+            }
+            
+        case "Sku":
+            if isParsingExtensionProduct {
+                currentProductSku = content
+            }
+            
+        case "StockCount":
+            if isParsingExtensionProduct {
+                currentProductStockCount = Int(content)
+            }
+            
+        case "Product":
+            if isParsingExtensionProduct {
+                let product = VASTProduct(
+                    advertiserID: currentProductAdvertiserID,
+                    brand: currentProductBrand,
+                    imageURL: currentProductImageURL,
+                    name: currentProductName,
+                    pdpURL: currentProductPdpURL,
+                    price: currentProductPrice,
+                    rating: currentProductRating,
+                    sku: currentProductSku,
+                    stockCount: currentProductStockCount
+                )
+                products.append(product)
+            }
+            
+        case "Extension":
+            isParsingExtensionProduct = false
             
         default:
             break
