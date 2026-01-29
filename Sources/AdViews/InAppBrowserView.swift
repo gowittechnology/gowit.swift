@@ -1,12 +1,6 @@
 import SwiftUI
 import WebKit
 
-#if canImport(UIKit)
-import UIKit
-#endif
-
-#if os(iOS) || os(tvOS)
-
 /// A Safari-style in-app browser for displaying ad destinations
 ///
 /// This view provides a full-featured browser with navigation controls,
@@ -185,26 +179,3 @@ class InAppBrowserViewModel: NSObject, ObservableObject {
     }
 }
 
-// MARK: - Preview
-
-#Preview {
-    struct PreviewWrapper: View {
-        @State private var isPresented = true
-        
-        var body: some View {
-            Button("Show Browser") {
-                isPresented = true
-            }
-            .sheet(isPresented: $isPresented) {
-                InAppBrowserView(
-                    isPresented: $isPresented,
-                    url: URL(string: "https://www.example.com")!
-                )
-            }
-        }
-    }
-    
-    return PreviewWrapper()
-}
-
-#endif // os(iOS) || os(tvOS)

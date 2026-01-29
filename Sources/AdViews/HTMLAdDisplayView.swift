@@ -2,10 +2,6 @@ import SwiftUI
 import WebKit
 import Gowit
 
-#if canImport(UIKit)
-import UIKit
-#endif
-
 /// A SwiftUI component for displaying HTML ads with WebView rendering
 ///
 /// This component handles:
@@ -79,9 +75,6 @@ public struct HTMLAdDisplayView: View {
                     onNavigationAction: handleNavigationAction
                 )
                 .frame(width: scaledSize.width, height: scaledSize.height)
-                .onAppear {
-                    reportImpressionIfNeeded()
-                }
             } else {
                 EmptyView()
             }
@@ -130,47 +123,13 @@ public struct HTMLAdDisplayView: View {
         let scale = screenWidth / originalSize.width
         return CGSize(width: screenWidth, height: originalSize.height * scale)
     }
-    
-    // MARK: - Event Tracking
-    
-    private func reportImpressionIfNeeded() {
-        guard !hasReportedImpression else { return }
-        
-        hasReportedImpression = true
-        
-        Task {
-            do {
-                if let adId = ad.adId {
-                    try await Gowit.shared.sendImpressionEvent(adId: adId, sessionId: sessionId)
-                }
-            } catch {
-                print("Failed to send impression event: \(error)")
-                delegate?.htmlAd(ad, didFailWithError: error)
-            }
-        }
-    }
-    
-    private func reportClick() {
-        Task {
-            do {
-                if let adId = ad.adId {
-                    try await Gowit.shared.sendClickEvent(adId: adId, sessionId: sessionId)
-                }
-            } catch {
-                print("Failed to send click event: \(error)")
-                delegate?.htmlAd(ad, didFailWithError: error)
-            }
-        }
-    }
+
     
     // MARK: - Navigation Handling
     
     private func handleNavigationAction(for url: URL) {
         // Notify delegate
         delegate?.htmlAd(ad, willHandleClickOn: url)
-        
-        // Send click event
-        reportClick()
         
         // Handle based on configuration
         switch configuration.clickBehavior {
@@ -260,17 +219,11 @@ public struct HTMLAdDisplayView: View {
     }
     
     private func openExternally(url: URL) {
-        #if os(iOS) || os(tvOS)
         UIApplication.shared.open(url)
-        #elseif os(macOS)
-        NSWorkspace.shared.open(url)
-        #endif
     }
 }
 
 // MARK: - HTML WebView
-
-#if os(iOS) || os(tvOS)
 struct HTMLWebView: UIViewRepresentable {
     let htmlString: String
     let configuration: HTMLAdConfiguration
@@ -324,77 +277,4 @@ struct HTMLWebView: UIViewRepresentable {
             decisionHandler(.allow)
         }
     }
-}
-#else
-// macOS placeholder - WebView implementation can be added later
-struct HTMLWebView: View {
-    let htmlString: String
-    let configuration: HTMLAdConfiguration
-    let onNavigationAction: (URL) -> Void
-    
-    var body: some View {
-        Text("HTML ads require iOS/tvOS")
-    }
-}
-#endif
-
-// MARK: - Preview
-
-#Preview {
-    VStack(spacing: 20) {
-        // Sample HTML ad
-        let sampleAd = Ad(
-            adId: "preview-ad-123",
-            creativeId: 1,
-            size: "320x100",
-            html: """
-            <!DOCTYPE html>
-            <html>
-            <head>
-                <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                <style>
-                    body { margin: 0; padding: 0; }
-                    .ad { 
-                        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-                        padding: 20px;
-                        text-align: center;
-                        color: white;
-                        font-family: -apple-system, BlinkMacSystemFont, sans-serif;
-                    }
-                    .ad h2 { margin: 0 0 10px 0; }
-                    .ad p { margin: 0; }
-                    a { color: white; text-decoration: none; }
-                </style>
-            </head>
-            <body>
-                <div class="ad">
-                    <h2>Premium Product</h2>
-                    <p>Click to learn more</p>
-                    <a href="https://example.com/product">Shop Now →</a>
-                </div>
-            </body>
-            </html>
-            """
-        )
-        
-        Text("Default Configuration")
-            .font(.headline)
-        
-        HTMLAdDisplayView(
-            ad: sampleAd,
-            sessionId: "preview-session"
-        )
-        
-        Text("With Redirect Resolution")
-            .font(.headline)
-        
-        HTMLAdDisplayView(
-            ad: sampleAd,
-            sessionId: "preview-session",
-            configuration: .withRedirectResolution
-        )
-        
-        Spacer()
-    }
-    .padding()
 }
