@@ -274,6 +274,80 @@ The SDK supports two main types of ads:
 - Contain `img_url`, or `html`, and `redirect` information
 - Ready to display directly to users
 
+##### Image-Based Display Ads
+Use `SponsoredDisplayView` for image-based display ads:
+```swift
+SponsoredDisplayView(placementId: 5, sessionId: sessionId)
+```
+
+##### HTML Display Ads
+Use `HTMLAdDisplayView` for HTML-based display ads with rich content:
+```swift
+import AdViews
+
+HTMLAdDisplayView(
+    ad: ad,
+    sessionId: sessionId,
+    configuration: .default
+)
+```
+
+**Features:**
+- WebView-based HTML rendering
+- Automatic size calculation and responsive scaling  
+- Click tracking with configurable behavior
+- Redirect chain resolution for tracking URLs
+- In-app browser with refresh/close buttons
+- Developer callbacks for lifecycle events
+
+**Configuration Options:**
+```swift
+// Default: Simple click handling
+.default
+
+// With redirect resolution: Follow tracking URLs
+.withRedirectResolution
+
+// Delegate controlled: Full custom control
+.delegateControlled
+```
+
+**Example with Redirect Resolution:**
+```swift
+// For ads with tracking URLs that redirect to final destinations
+var config = HTMLAdConfiguration.default
+config.clickBehavior = .resolveRedirects
+config.useInAppBrowser = true
+
+HTMLAdDisplayView(
+    ad: ad,
+    sessionId: sessionId,
+    configuration: config
+)
+```
+
+**Custom Delegate:**
+```swift
+class MyAdHandler: HTMLAdDelegate {
+    func htmlAd(_ ad: Ad, didResolveRedirectChain resolution: RedirectResolution) {
+        print("Resolved to: \(resolution.finalURL)")
+    }
+    
+    func htmlAd(_ ad: Ad, shouldOpenInAppBrowser url: URL) -> Bool {
+        return !url.host?.contains("external.com") ?? true
+    }
+}
+
+HTMLAdDisplayView(
+    ad: ad,
+    sessionId: sessionId,
+    configuration: .delegateControlled,
+    delegate: myHandler
+)
+```
+
+📖 **Detailed Guide:** See [HTMLAD_USAGE.md](HTMLAD_USAGE.md) for comprehensive documentation.
+
 
 #### Sponsored Product Ads
 - Contain a `product_id` (SKU) for catalog integration
