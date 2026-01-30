@@ -373,9 +373,6 @@ final class VideoAdViewModel: ObservableObject {
         
         // Notify callback
         onAdClicked?(url)
-        
-        // Open URL
-        UIApplication.shared.open(url)
     }
     
     // MARK: - Loading

@@ -1,4 +1,5 @@
 import Foundation
+import WebKit
 
 /// Represents the result of following a redirect chain
 public struct RedirectResolution {
@@ -30,7 +31,7 @@ public struct RedirectHandlerConfiguration {
     /// Maximum number of redirects to follow before giving up
     public var maxRedirects: Int
     
-    /// Timeout for each HTTP request
+    /// Timeout for redirect resolution
     public var timeout: TimeInterval
     
     /// Default configuration
@@ -48,141 +49,210 @@ public struct RedirectHandlerConfiguration {
 }
 
 /// Errors that can occur during redirect handling
-public enum RedirectHandlerError: Error {
+public enum RedirectHandlerError: Error, LocalizedError {
     case tooManyRedirects
-    case invalidRedirectLocation
-    case timeout
-    case networkError(Error)
     case invalidResponse
+    case invalidRedirectLocation
+    case networkError(Error)
+    case timeout
+    case unknown(String)
+    
+    public var errorDescription: String? {
+        switch self {
+        case .tooManyRedirects:
+            return "Too many redirects"
+        case .invalidResponse:
+            return "Invalid HTTP response"
+        case .invalidRedirectLocation:
+            return "Invalid redirect location"
+        case .networkError(let error):
+            return "Network error: \(error.localizedDescription)"
+        case .timeout:
+            return "Redirect resolution timeout"
+        case .unknown(let message):
+            return message
+        }
+    }
 }
 
-/// Utility class for handling URL redirects and tracking chains
-public class RedirectHandler {
+/// Handler for resolving URL redirect chains using WKWebView
+/// This preserves cookies, user-agent, and handles all redirect types (HTTP, JavaScript, meta refresh)
+@MainActor
+public class RedirectHandler: NSObject {
+    
     private let configuration: RedirectHandlerConfiguration
+    private var webView: WKWebView?
+    private var redirectCount = 0
+    private var originalURL: URL?
+    private var completion: ((Result<RedirectResolution, RedirectHandlerError>) -> Void)?
+    private var timeoutTimer: Timer?
     
     public init(configuration: RedirectHandlerConfiguration = .default) {
         self.configuration = configuration
+        super.init()
     }
     
-    /// Resolve a redirect chain by following all redirects until a final destination is reached
-    /// - Parameter url: The original URL to resolve
-    /// - Returns: A RedirectResolution containing information about the redirect chain
-    /// - Throws: RedirectHandlerError if resolution fails
+    /// Resolve the full redirect chain from the given URL
+    /// - Parameter url: The starting URL (typically a tracking URL)
+    /// - Returns: RedirectResolution containing the final destination and chain info
     public func resolveRedirectChain(from url: URL) async throws -> RedirectResolution {
-        guard configuration.followRedirects else {
-            // If not following redirects, just return the original URL
-            return RedirectResolution(
-                originalURL: url,
-                finalURL: url,
-                redirectCount: 0,
-                isTrackerURL: false
-            )
-        }
-        
-        var currentURL = url
-        var redirectCount = 0
-        
-        // Follow redirects until we reach a non-redirect response
-        while redirectCount < configuration.maxRedirects {
-            let nextURL = try await followSingleRedirect(url: currentURL)
-            
-            if let redirectURL = nextURL {
-                // This was a redirect, continue following
-                currentURL = redirectURL
-                redirectCount += 1
-            } else {
-                // No more redirects, we've reached the final destination
-                let isTrackerURL = redirectCount > 0
-                return RedirectResolution(
-                    originalURL: url,
-                    finalURL: currentURL,
-                    redirectCount: redirectCount,
-                    isTrackerURL: isTrackerURL
-                )
+        return try await withCheckedThrowingContinuation { continuation in
+            self.startResolving(url: url) { result in
+                continuation.resume(with: result)
             }
-        }
-        
-        // Exceeded max redirects
-        throw RedirectHandlerError.tooManyRedirects
-    }
-    
-    /// Follow a single redirect step
-    /// - Parameter url: The URL to check for redirects
-    /// - Returns: The redirect URL if this is a redirect, or nil if not
-    private func followSingleRedirect(url: URL) async throws -> URL? {
-        GowitLogger.debug("Checking URL: \(url.absoluteString)")
-        
-        // Create a custom URL session that doesn't follow redirects
-        let sessionConfig = URLSessionConfiguration.ephemeral
-        sessionConfig.httpShouldSetCookies = false
-        
-        // Create delegate to prevent automatic redirect following
-        let delegate = NoRedirectDelegate()
-        let session = URLSession(configuration: sessionConfig, delegate: delegate, delegateQueue: nil)
-        
-        // Use GET method since some servers don't support HEAD (return 405)
-        var request = URLRequest(url: url, timeoutInterval: configuration.timeout)
-        request.httpMethod = "GET"
-        
-        do {
-            let (_, response) = try await session.data(for: request)
-            
-            guard let httpResponse = response as? HTTPURLResponse else {
-                GowitLogger.error("Invalid response type for URL: \(url.absoluteString)")
-                throw RedirectHandlerError.invalidResponse
-            }
-            
-            GowitLogger.debug("Status code: \(httpResponse.statusCode)")
-            
-            // Check if this is a redirect status code
-            if isRedirectStatusCode(httpResponse.statusCode) {
-                // Extract the Location header
-                guard let locationString = httpResponse.value(forHTTPHeaderField: "Location") else {
-                    GowitLogger.error("No Location header found for redirect")
-                    throw RedirectHandlerError.invalidRedirectLocation
-                }
-                
-                guard let redirectURL = URL(string: locationString, relativeTo: url)?.absoluteURL else {
-                    GowitLogger.error("Invalid Location URL: \(locationString)")
-                    throw RedirectHandlerError.invalidRedirectLocation
-                }
-                
-                GowitLogger.debug("Redirect to: \(redirectURL.absoluteString)")
-                return redirectURL
-            } else if httpResponse.statusCode == 200 {
-                // Success - this is the final destination
-                GowitLogger.debug("Final destination reached (200)")
-                return nil
-            } else {
-                // Other status codes (4xx, 5xx) - treat as final destination
-                GowitLogger.debug("Non-redirect status: \(httpResponse.statusCode)")
-                return nil
-            }
-        } catch let error as RedirectHandlerError {
-            throw error
-        } catch {
-            GowitLogger.error("Network error during redirect resolution", error: error)
-            throw RedirectHandlerError.networkError(error)
         }
     }
     
-    /// Check if a status code indicates a redirect
-    private func isRedirectStatusCode(_ code: Int) -> Bool {
-        return code == 301 || code == 302 || code == 303 || code == 307 || code == 308
+    private func startResolving(url: URL, completion: @escaping (Result<RedirectResolution, RedirectHandlerError>) -> Void) {
+        GowitLogger.debug("Starting redirect resolution for: \(url.absoluteString)")
+        
+        // Ensure cleanup from any previous attempt
+        cleanup()
+        
+        self.originalURL = url
+        self.redirectCount = 0
+        self.completion = completion
+        
+        // Create configuration with shared process pool for better stability
+        let config = WKWebViewConfiguration()
+        config.websiteDataStore = .nonPersistent() // Don't persist cookies/data
+        config.suppressesIncrementalRendering = true // Don't render, just resolve
+        
+        // Disable media playback to reduce resource usage
+        config.allowsInlineMediaPlayback = false
+        config.mediaTypesRequiringUserActionForPlayback = .all
+        
+        let webView = WKWebView(frame: .zero, configuration: config)
+        webView.navigationDelegate = self
+        self.webView = webView
+        
+        // Set timeout
+        timeoutTimer = Timer.scheduledTimer(withTimeInterval: configuration.timeout, repeats: false) { [weak self] _ in
+            Task { @MainActor in
+                self?.handleTimeout()
+            }
+        }
+        
+        // Load URL
+        let request = URLRequest(url: url, cachePolicy: .reloadIgnoringLocalAndRemoteCacheData)
+        webView.load(request)
+    }
+    
+    private func finishResolving(finalURL: URL) {
+        GowitLogger.debug("Redirect resolution complete. Final URL: \(finalURL.absoluteString)")
+        GowitLogger.debug("Redirect count: \(redirectCount)")
+        
+        timeoutTimer?.invalidate()
+        timeoutTimer = nil
+        
+        guard let originalURL = originalURL else {
+            completion?(.failure(.unknown("Original URL not set")))
+            cleanup()
+            return
+        }
+        
+        let resolution = RedirectResolution(
+            originalURL: originalURL,
+            finalURL: finalURL,
+            redirectCount: redirectCount,
+            isTrackerURL: redirectCount > 0
+        )
+        
+        completion?(.success(resolution))
+        cleanup()
+    }
+    
+    private func finishWithError(_ error: RedirectHandlerError) {
+        GowitLogger.error("Redirect resolution failed", error: error)
+        
+        timeoutTimer?.invalidate()
+        timeoutTimer = nil
+        
+        completion?(.failure(error))
+        cleanup()
+    }
+    
+    private func handleTimeout() {
+        GowitLogger.error("Redirect resolution timeout")
+        finishWithError(.timeout)
+    }
+    
+    private func cleanup() {
+        // Stop loading first
+        webView?.stopLoading()
+        
+        // Remove delegate
+        webView?.navigationDelegate = nil
+        
+        // Load about:blank to release resources
+        if let webView = webView {
+            webView.load(URLRequest(url: URL(string: "about:blank")!))
+        }
+        
+        // Clear reference
+        webView = nil
+        completion = nil
+        originalURL = nil
+        redirectCount = 0
+    }
+    
+    deinit {
+        // Ensure cleanup on deallocation
+        timeoutTimer?.invalidate()
+        webView?.stopLoading()
+        webView?.navigationDelegate = nil
+        webView = nil
     }
 }
 
-// MARK: - URLSession Delegate to Prevent Auto-Redirect
+// MARK: - WKNavigationDelegate
 
-private class NoRedirectDelegate: NSObject, URLSessionTaskDelegate {
-    func urlSession(
-        _ session: URLSession,
-        task: URLSessionTask,
-        willPerformHTTPRedirection response: HTTPURLResponse,
-        newRequest request: URLRequest,
-        completionHandler: @escaping (URLRequest?) -> Void
-    ) {
-        // Return nil to prevent automatic redirect following
-        completionHandler(nil)
+extension RedirectHandler: WKNavigationDelegate {
+    
+    public func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction, decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
+        
+        guard let url = navigationAction.request.url else {
+            decisionHandler(.cancel)
+            return
+        }
+        
+        GowitLogger.debug("Navigation to: \(url.absoluteString)")
+        
+        // Check redirect limit
+        if redirectCount >= configuration.maxRedirects {
+            GowitLogger.error("Max redirects exceeded")
+            decisionHandler(.cancel)
+            finishWithError(.tooManyRedirects)
+            return
+        }
+        
+        // Count this as a redirect if it's not the first navigation
+        if redirectCount > 0 || url != originalURL {
+            redirectCount += 1
+            GowitLogger.debug("Redirect #\(redirectCount)")
+        }
+        
+        decisionHandler(.allow)
+    }
+    
+    public func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+        // Navigation finished - this is the final URL
+        guard let finalURL = webView.url else {
+            finishWithError(.invalidResponse)
+            return
+        }
+        
+        GowitLogger.debug("Navigation finished at: \(finalURL.absoluteString)")
+        finishResolving(finalURL: finalURL)
+    }
+    
+    public func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
+        GowitLogger.error("Navigation failed", error: error)
+        finishWithError(.networkError(error))
+    }
+    
+    public func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
+        GowitLogger.error("Provisional navigation failed", error: error)
+        finishWithError(.networkError(error))
     }
 }

@@ -28,7 +28,7 @@ Add the Gowit Swift SDK to your project:
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/gowittechnology/gowit-swift.git", from: "1.0.1")
+    .package(url: "https://github.com/gowittechnology/gowit-swift.git", from: "1.0.2")
 ]
 ```
 

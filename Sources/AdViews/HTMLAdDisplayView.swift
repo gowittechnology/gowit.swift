@@ -119,7 +119,7 @@ public struct HTMLAdDisplayView: View {
     // MARK: - Navigation Handling
     
     private func handleNavigationAction(for url: URL) {
-        Gowit Logger.debug("Navigation action detected")
+        GowitLogger.debug("Navigation action detected")
         GowitLogger.debug("URL: \(url.absoluteString)")
         GowitLogger.debug("Click behavior: \(configuration.clickBehavior)")
         

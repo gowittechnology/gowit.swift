@@ -21,7 +21,7 @@ Add the following dependency to your `Package.swift` file:
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/gowittechnology/gowit-swift.git", from: "1.0.1")
+    .package(url: "https://github.com/gowittechnology/gowit-swift.git", from: "1.0.2")
 ]
 ```
 
@@ -281,7 +281,9 @@ SponsoredDisplayView(placementId: 5, sessionId: sessionId)
 ```
 
 ##### HTML Display Ads
-Use `HTMLAdDisplayView` for HTML-based display ads with rich content:
+
+Use `HTMLAdDisplayView` for HTML-based display ads:
+
 ```swift
 import AdViews
 
@@ -292,62 +294,92 @@ HTMLAdDisplayView(
 )
 ```
 
-**Features:**
-- WebView-based HTML rendering
-- Automatic size calculation and responsive scaling  
-- Click tracking with configurable behavior
-- Redirect chain resolution for tracking URLs
-- In-app browser with refresh/close buttons
-- Developer callbacks for lifecycle events
-
 **Configuration Options:**
+
+The SDK provides three preset configurations for different use cases:
+
+| Configuration | Click Behavior | Use Case |
+|--------------|---------------|----------|
+| `.default` | Opens URL in in-app browser | Standard clickable ads |
+| `.delegateHandled` | Resolves redirects, notifies delegate | Custom URL handling, deep linking |
+
+**Basic Usage:**
+
 ```swift
-// Default: Simple click handling
-.default
-
-// With redirect resolution: Follow tracking URLs
-.withRedirectResolution
-
-// Delegate controlled: Full custom control
-.delegateControlled
+// Default configuration - opens in in-app browser
+HTMLAdDisplayView(
+    ad: htmlAd,
+    sessionId: "session-123",
+    configuration: .default
+)
 ```
 
-**Example with Redirect Resolution:**
+**Custom Configuration:**
+
 ```swift
-// For ads with tracking URLs that redirect to final destinations
+// Create custom configuration
 var config = HTMLAdConfiguration.default
-config.clickBehavior = .resolveRedirects
-config.useInAppBrowser = true
+config.maxRedirects = 10
+config.isScrollEnabled = true
 
 HTMLAdDisplayView(
-    ad: ad,
-    sessionId: sessionId,
+    ad: htmlAd,
+    sessionId: "session-123",
     configuration: config
 )
 ```
 
-**Custom Delegate:**
+**Delegate-Controlled Behavior:**
+
+For advanced use cases like deep link handling or custom URL processing:
+
 ```swift
-class MyAdHandler: HTMLAdDelegate {
-    func htmlAd(_ ad: Ad, didResolveRedirectChain resolution: RedirectResolution) {
-        print("Resolved to: \(resolution.finalURL)")
+class AdClickHandler: HTMLAdClickDelegate {
+    // Called when user clicks the ad
+    func adWasClicked(_ ad: Ad, clickedURL: URL) {
+        print("Ad clicked: \(clickedURL)")
     }
     
-    func htmlAd(_ ad: Ad, shouldOpenInAppBrowser url: URL) -> Bool {
-        return !url.host?.contains("external.com") ?? true
+    // Called with final URL after redirect resolution
+    func handleAdClick(_ ad: Ad, destinationURL: URL) {
+        // Handle deep links
+        if destinationURL.scheme == "myapp" {
+            handleDeepLink(url: destinationURL)
+        } else {
+            // Open in Safari or custom browser
+            UIApplication.shared.open(destinationURL)
+        }
+    }
+    
+    // Optional: Track redirect chain for analytics
+    func adClickResolved(_ ad: Ad, result: Result<RedirectResolution, Error>) {
+        switch result {
+        case .success(let resolution):
+            print("Resolved \(resolution.redirectCount) redirects")
+            print("Final URL: \(resolution.finalURL)")
+        case .failure(let error):
+            print("Resolution failed: \(error)")
+        }
     }
 }
 
+// Use with delegate
+let handler = AdClickHandler()
 HTMLAdDisplayView(
-    ad: ad,
-    sessionId: sessionId,
-    configuration: .delegateControlled,
-    delegate: myHandler
+    ad: htmlAd,
+    sessionId: "session-123",
+    configuration: .delegateHandled,
+    delegate: handler
 )
 ```
 
-📖 **Detailed Guide:** See [HTMLAD_USAGE.md](HTMLAD_USAGE.md) for comprehensive documentation.
+**Features:**
 
+- WebView-based HTML rendering with automatic size calculation
+- Responsive scaling to fit screen width
+- Configurable click handling (in-app browser or delegate-controlled)
+- Automatic redirect chain resolution for tracking URLs
+- Optional delegate callbacks for analytics and custom URL handling
 
 #### Sponsored Product Ads
 - Contain a `product_id` (SKU) for catalog integration

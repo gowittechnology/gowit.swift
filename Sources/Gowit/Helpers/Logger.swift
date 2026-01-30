@@ -27,7 +27,7 @@ public enum GowitLogger {
     ///   - file: Source file (automatically captured)
     ///   - function: Source function (automatically captured)
     ///   - line: Source line (automatically captured)
-    static func debug(
+    public static func debug(
         _ message: String,
         file: String = #file,
         function: String = #function,
@@ -45,7 +45,7 @@ public enum GowitLogger {
     ///   - file: Source file (automatically captured)
     ///   - function: Source function (automatically captured)
     ///   - line: Source line (automatically captured)
-    static func error(
+    public static func error(
         _ message: String,
         error: Error? = nil,
         file: String = #file,

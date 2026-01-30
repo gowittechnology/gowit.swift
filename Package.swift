@@ -6,10 +6,7 @@ import PackageDescription
 let package = Package(
     name: "Gowit",
     platforms: [
-        .iOS("15.0"),
-        .macOS("12.00"),
-        .tvOS("11.0"),
-        .watchOS("7.1")
+        .iOS("15.0")
     ],
     products: [
         // Products define the executables and libraries a package produces, making them visible to other packages.
@@ -32,7 +29,7 @@ let package = Package(
         ),
         .target(
             name: "AdViews",
-            dependencies: ["Gowit"]
+            dependencies: ["Gowit"],
         ),
         .testTarget(
             name: "gowit.swiftTests",
