@@ -1,30 +1,14 @@
 import Foundation
 
 /// Defines how clicks on HTML ads should be handled
-public enum ClickBehavior {
-    /// Open the URL directly without any preprocessing
-    case openDirectly
+public enum HTMLClickBehavior {
+    /// Automatically open the URL in the in-app browser
+    /// The browser will follow redirects naturally
+    case openInApp
     
-    /// Follow redirect chains and resolve to the final destination before opening
-    case resolveRedirects
-    
-    /// Notify the delegate and let them decide what to do
-    case notifyDelegate
-}
-
-/// Navigation policy decision for HTML ad clicks
-public enum NavigationPolicy {
-    /// Allow the navigation to proceed
-    case allow
-    
-    /// Cancel the navigation
-    case cancel
-    
-    /// Open the URL in the in-app browser
-    case openInAppBrowser
-    
-    /// Open the URL in the external system browser
-    case openExternally
+    /// Resolve redirects and pass the final destination URL to the delegate
+    /// The delegate decides what to do with the URL
+    case handleByDelegate
 }
 
 /// Configuration options for HTML ad display and behavior
@@ -32,26 +16,12 @@ public struct HTMLAdConfiguration {
     // MARK: - Click Handling
     
     /// How clicks on the ad should be handled
-    public var clickBehavior: ClickBehavior
+    public var clickBehavior: HTMLClickBehavior
     
     // MARK: - Redirect Options
     
-    /// Whether to follow redirect chains
-    public var followRedirects: Bool
-    
-    /// Maximum number of redirects to follow
+    /// Maximum number of redirects to follow when resolving URLs
     public var maxRedirects: Int
-    
-    /// Whether to resolve redirects before opening the URL
-    public var resolveBeforeOpening: Bool
-    
-    // MARK: - Browser Options
-    
-    /// Whether to use the in-app browser instead of external browser
-    public var useInAppBrowser: Bool
-    
-    /// Whether to allow opening URLs in external browser as fallback
-    public var allowExternalBrowser: Bool
     
     // MARK: - WebView Options
     
@@ -63,38 +33,18 @@ public struct HTMLAdConfiguration {
     
     // MARK: - Presets
     
-    /// Default configuration: direct opening with in-app browser
+    /// Default configuration: automatic opening in in-app browser
     public static let `default` = HTMLAdConfiguration(
-        clickBehavior: .openDirectly,
-        followRedirects: false,
+        clickBehavior: .openInApp,
         maxRedirects: 10,
-        resolveBeforeOpening: false,
-        useInAppBrowser: true,
-        allowExternalBrowser: true,
-        allowsInlineMediaPlayback: true,
-        isScrollEnabled: false
-    )
-    
-    /// Configuration for tracking URL resolution
-    public static let withRedirectResolution = HTMLAdConfiguration(
-        clickBehavior: .resolveRedirects,
-        followRedirects: true,
-        maxRedirects: 10,
-        resolveBeforeOpening: true,
-        useInAppBrowser: true,
-        allowExternalBrowser: true,
         allowsInlineMediaPlayback: true,
         isScrollEnabled: false
     )
     
     /// Configuration for delegate-controlled behavior
-    public static let delegateControlled = HTMLAdConfiguration(
-        clickBehavior: .notifyDelegate,
-        followRedirects: false,
+    public static let delegateHandled = HTMLAdConfiguration(
+        clickBehavior: .handleByDelegate,
         maxRedirects: 10,
-        resolveBeforeOpening: false,
-        useInAppBrowser: false,
-        allowExternalBrowser: true,
         allowsInlineMediaPlayback: true,
         isScrollEnabled: false
     )
@@ -102,21 +52,13 @@ public struct HTMLAdConfiguration {
     // MARK: - Initialization
     
     public init(
-        clickBehavior: ClickBehavior = .openDirectly,
-        followRedirects: Bool = false,
+        clickBehavior: HTMLClickBehavior = .openInApp,
         maxRedirects: Int = 10,
-        resolveBeforeOpening: Bool = false,
-        useInAppBrowser: Bool = true,
-        allowExternalBrowser: Bool = true,
         allowsInlineMediaPlayback: Bool = true,
         isScrollEnabled: Bool = false
     ) {
         self.clickBehavior = clickBehavior
-        self.followRedirects = followRedirects
         self.maxRedirects = maxRedirects
-        self.resolveBeforeOpening = resolveBeforeOpening
-        self.useInAppBrowser = useInAppBrowser
-        self.allowExternalBrowser = allowExternalBrowser
         self.allowsInlineMediaPlayback = allowsInlineMediaPlayback
         self.isScrollEnabled = isScrollEnabled
     }

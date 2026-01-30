@@ -110,38 +110,58 @@ public class RedirectHandler {
     /// - Parameter url: The URL to check for redirects
     /// - Returns: The redirect URL if this is a redirect, or nil if not
     private func followSingleRedirect(url: URL) async throws -> URL? {
-        // Create a URL request with HEAD method to avoid downloading content
-        var request = URLRequest(url: url, timeoutInterval: configuration.timeout)
-        request.httpMethod = "HEAD"
+        GowitLogger.debug("Checking URL: \(url.absoluteString)")
         
-        // Don't automatically follow redirects - we want to handle them manually
-        let config = URLSessionConfiguration.default
-        config.httpShouldSetCookies = false
-        let session = URLSession(configuration: config)
+        // Create a custom URL session that doesn't follow redirects
+        let sessionConfig = URLSessionConfiguration.ephemeral
+        sessionConfig.httpShouldSetCookies = false
+        
+        // Create delegate to prevent automatic redirect following
+        let delegate = NoRedirectDelegate()
+        let session = URLSession(configuration: sessionConfig, delegate: delegate, delegateQueue: nil)
+        
+        // Use GET method since some servers don't support HEAD (return 405)
+        var request = URLRequest(url: url, timeoutInterval: configuration.timeout)
+        request.httpMethod = "GET"
         
         do {
             let (_, response) = try await session.data(for: request)
             
             guard let httpResponse = response as? HTTPURLResponse else {
+                GowitLogger.error("Invalid response type for URL: \(url.absoluteString)")
                 throw RedirectHandlerError.invalidResponse
             }
+            
+            GowitLogger.debug("Status code: \(httpResponse.statusCode)")
             
             // Check if this is a redirect status code
             if isRedirectStatusCode(httpResponse.statusCode) {
                 // Extract the Location header
-                guard let locationString = httpResponse.value(forHTTPHeaderField: "Location"),
-                      let redirectURL = URL(string: locationString, relativeTo: url)?.absoluteURL else {
+                guard let locationString = httpResponse.value(forHTTPHeaderField: "Location") else {
+                    GowitLogger.error("No Location header found for redirect")
                     throw RedirectHandlerError.invalidRedirectLocation
                 }
                 
+                guard let redirectURL = URL(string: locationString, relativeTo: url)?.absoluteURL else {
+                    GowitLogger.error("Invalid Location URL: \(locationString)")
+                    throw RedirectHandlerError.invalidRedirectLocation
+                }
+                
+                GowitLogger.debug("Redirect to: \(redirectURL.absoluteString)")
                 return redirectURL
+            } else if httpResponse.statusCode == 200 {
+                // Success - this is the final destination
+                GowitLogger.debug("Final destination reached (200)")
+                return nil
             } else {
-                // Not a redirect, this is the final destination
+                // Other status codes (4xx, 5xx) - treat as final destination
+                GowitLogger.debug("Non-redirect status: \(httpResponse.statusCode)")
                 return nil
             }
         } catch let error as RedirectHandlerError {
             throw error
         } catch {
+            GowitLogger.error("Network error during redirect resolution", error: error)
             throw RedirectHandlerError.networkError(error)
         }
     }
@@ -149,5 +169,20 @@ public class RedirectHandler {
     /// Check if a status code indicates a redirect
     private func isRedirectStatusCode(_ code: Int) -> Bool {
         return code == 301 || code == 302 || code == 303 || code == 307 || code == 308
+    }
+}
+
+// MARK: - URLSession Delegate to Prevent Auto-Redirect
+
+private class NoRedirectDelegate: NSObject, URLSessionTaskDelegate {
+    func urlSession(
+        _ session: URLSession,
+        task: URLSessionTask,
+        willPerformHTTPRedirection response: HTTPURLResponse,
+        newRequest request: URLRequest,
+        completionHandler: @escaping (URLRequest?) -> Void
+    ) {
+        // Return nil to prevent automatic redirect following
+        completionHandler(nil)
     }
 }

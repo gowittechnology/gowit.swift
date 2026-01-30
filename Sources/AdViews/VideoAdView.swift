@@ -1,4 +1,3 @@
-#if os(iOS)
 import SwiftUI
 import AVFoundation
 import AVKit
@@ -966,21 +965,3 @@ struct ShimmerView: View {
     }
 }
 
-// MARK: - Preview
-
-#if DEBUG
-struct VideoAdView_Previews: PreviewProvider {
-    static var previews: some View {
-        VStack {
-            VideoAdView(
-                vastURL: URL(string: "https://example.com/vast")!,
-                configuration: .default
-            )
-            .frame(height: 250)
-            .padding()
-        }
-    }
-}
-#endif
-
-#endif // os(iOS)

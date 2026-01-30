@@ -1,4 +1,4 @@
-#if os(iOS)
+
 import XCTest
 @testable import AdViews
 
@@ -197,4 +197,3 @@ final class VASTParserTests: XCTestCase {
         XCTAssertEqual(inLine.creatives.first?.linear?.duration, 30)
     }
 }
-#endif

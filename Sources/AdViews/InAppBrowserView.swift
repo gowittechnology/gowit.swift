@@ -1,18 +1,19 @@
 import SwiftUI
 import WebKit
+import Gowit
 
 /// A Safari-style in-app browser for displaying ad destinations
 ///
 /// This view provides a full-featured browser with navigation controls,
 /// refresh capability, and a close button.
 public struct InAppBrowserView: View {
-    @Binding var isPresented: Bool
+    @Environment(\.dismiss) private var dismiss
     let url: URL
     
     @StateObject private var viewModel = InAppBrowserViewModel()
     
-    public init(isPresented: Binding<Bool>, url: URL) {
-        self._isPresented = isPresented
+    public init(url: URL) {
+        GowitLogger.debug("Init called with URL: \(url.absoluteString)")
         self.url = url
     }
     
@@ -39,7 +40,7 @@ public struct InAppBrowserView: View {
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
                     Button(action: {
-                        isPresented = false
+                        dismiss()
                     }) {
                         Text("Close")
                     }
@@ -83,6 +84,7 @@ struct InAppBrowserWebView: UIViewRepresentable {
     @ObservedObject var viewModel: InAppBrowserViewModel
     
     func makeUIView(context: Context) -> WKWebView {
+        GowitLogger.debug("makeUIView called for URL: \(url.absoluteString)")
         let configuration = WKWebViewConfiguration()
         configuration.allowsInlineMediaPlayback = true
         
@@ -95,15 +97,24 @@ struct InAppBrowserWebView: UIViewRepresentable {
             viewModel.webView = webView
         }
         
+        GowitLogger.debug("WKWebView created successfully")
         return webView
     }
     
     func updateUIView(_ webView: WKWebView, context: Context) {
         // Load URL only if not already loaded
         if webView.url == nil {
+            GowitLogger.debug("Loading URL: \(url.absoluteString)")
             let request = URLRequest(url: url)
             webView.load(request)
         }
+        // URL already loaded, no need to log repeatedly
+    }
+    
+    static func dismantleUIView(_ uiView: WKWebView, coordinator: Coordinator) {
+        GowitLogger.debug("Dismantling web view")
+        uiView.stopLoading()
+        uiView.navigationDelegate = nil
     }
     
     func makeCoordinator() -> Coordinator {
@@ -118,10 +129,13 @@ struct InAppBrowserWebView: UIViewRepresentable {
         }
         
         func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) {
+            GowitLogger.debug("Navigation started: \(webView.url?.absoluteString ?? "unknown")")
             viewModel.isLoading = true
         }
         
         func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+            GowitLogger.debug("Navigation finished: \(webView.url?.absoluteString ?? "unknown")")
+            GowitLogger.debug("Page title: \(webView.title ?? "no title")")
             viewModel.isLoading = false
             viewModel.pageTitle = webView.title
             viewModel.canGoBack = webView.canGoBack
@@ -129,10 +143,14 @@ struct InAppBrowserWebView: UIViewRepresentable {
         }
         
         func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
+            GowitLogger.error("Navigation failed: \(error.localizedDescription)")
+            GowitLogger.error("Error details: \(error)")
             viewModel.isLoading = false
         }
         
         func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
+            GowitLogger.error("Provisional navigation failed: \(error.localizedDescription)")
+            GowitLogger.error("Error details: \(error)")
             viewModel.isLoading = false
         }
     }
