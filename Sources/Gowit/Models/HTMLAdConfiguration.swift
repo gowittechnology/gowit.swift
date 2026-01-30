@@ -5,7 +5,7 @@ public enum HTMLClickBehavior {
     /// Automatically open the URL in the in-app browser
     /// The browser will follow redirects naturally
     case openInApp
-    
+
     /// Resolve redirects and pass the final destination URL to the delegate
     /// The delegate decides what to do with the URL
     case handleByDelegate
@@ -14,25 +14,25 @@ public enum HTMLClickBehavior {
 /// Configuration options for HTML ad display and behavior
 public struct HTMLAdConfiguration {
     // MARK: - Click Handling
-    
+
     /// How clicks on the ad should be handled
     public var clickBehavior: HTMLClickBehavior
-    
+
     // MARK: - Redirect Options
-    
+
     /// Maximum number of redirects to follow when resolving URLs
     public var maxRedirects: Int
-    
+
     // MARK: - WebView Options
-    
+
     /// Whether the WebView should allow inline media playback
     public var allowsInlineMediaPlayback: Bool
-    
+
     /// Whether the WebView should be scrollable
     public var isScrollEnabled: Bool
-    
+
     // MARK: - Presets
-    
+
     /// Default configuration: automatic opening in in-app browser
     public static let `default` = HTMLAdConfiguration(
         clickBehavior: .openInApp,
@@ -40,7 +40,7 @@ public struct HTMLAdConfiguration {
         allowsInlineMediaPlayback: true,
         isScrollEnabled: false
     )
-    
+
     /// Configuration for delegate-controlled behavior
     public static let delegateHandled = HTMLAdConfiguration(
         clickBehavior: .handleByDelegate,
@@ -48,9 +48,9 @@ public struct HTMLAdConfiguration {
         allowsInlineMediaPlayback: true,
         isScrollEnabled: false
     )
-    
+
     // MARK: - Initialization
-    
+
     public init(
         clickBehavior: HTMLClickBehavior = .openInApp,
         maxRedirects: Int = 10,

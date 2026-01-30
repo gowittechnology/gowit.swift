@@ -3,16 +3,16 @@ import Foundation
 /// Logger utility for the Gowit SDK
 /// By default, only errors are logged. Enable debug mode for detailed logs.
 public enum GowitLogger {
-    
+
     /// Enable detailed debug logging throughout the SDK
     /// - Note: Set to true during development, false in production
     public static var isDebugEnabled = false
-    
+
     /// Log levels for categorizing messages
     public enum Level {
         case debug
         case error
-        
+
         var prefix: String {
             switch self {
             case .debug: return "[Gowit:Debug]"
@@ -20,7 +20,7 @@ public enum GowitLogger {
             }
         }
     }
-    
+
     /// Log a debug message (only if debug mode is enabled)
     /// - Parameters:
     ///   - message: The message to log
@@ -37,7 +37,7 @@ public enum GowitLogger {
         let fileName = (file as NSString).lastPathComponent
         print("\(Level.debug.prefix) [\(fileName):\(line)] \(message)")
     }
-    
+
     /// Log an error message (always logged)
     /// - Parameters:
     ///   - message: The error message to log

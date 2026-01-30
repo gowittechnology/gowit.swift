@@ -17,7 +17,7 @@ public protocol HTMLAdClickDelegate: AnyObject {
     ///   - ad: The ad that was clicked
     ///   - clickedURL: The initial URL that was clicked
     func adWasClicked(_ ad: Ad, clickedURL: URL)
-    
+
     /// Called only when `clickBehavior` is `.handleByDelegate`
     ///
     /// This provides the final destination URL after resolving all redirects.
@@ -28,7 +28,7 @@ public protocol HTMLAdClickDelegate: AnyObject {
     ///   - ad: The ad that was clicked
     ///   - destinationURL: The final destination URL after following all redirects
     func handleAdClick(_ ad: Ad, destinationURL: URL)
-    
+
     /// Called only when `clickBehavior` is `.handleByDelegate`
     ///
     /// This optional method provides detailed information about the redirect resolution.
@@ -47,7 +47,7 @@ public extension HTMLAdClickDelegate {
     func adWasClicked(_ ad: Ad, clickedURL: URL) {
         // Default: no action
     }
-    
+
     /// Default implementation: does nothing
     /// 
     /// **Important**: You should implement this method to handle the URL appropriately
@@ -55,7 +55,7 @@ public extension HTMLAdClickDelegate {
     func handleAdClick(_ ad: Ad, destinationURL: URL) {
         // Default: no action - implement this in your app
     }
-    
+
     /// Default implementation: does nothing
     func adClickResolved(_ ad: Ad, result: Result<RedirectResolution, Error>) {
         // Default: no action

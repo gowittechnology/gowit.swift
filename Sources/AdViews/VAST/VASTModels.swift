@@ -6,20 +6,20 @@ import Foundation
 public struct VASTResponse: Sendable {
     /// VAST version
     public let version: String
-    
+
     /// List of ads in the response
     public let ads: [VASTAd]
-    
+
     /// Returns the first available ad
     public var firstAd: VASTAd? {
         ads.first
     }
-    
+
     /// Returns true if no ads are available
     public var isEmpty: Bool {
         ads.isEmpty
     }
-    
+
     public init(version: String, ads: [VASTAd]) {
         self.version = version
         self.ads = ads
@@ -32,26 +32,26 @@ public struct VASTResponse: Sendable {
 public struct VASTAd: Sendable {
     /// Unique identifier for the ad
     public let id: String
-    
+
     /// Sequence number for ad ordering
     public let sequence: Int?
-    
+
     /// InLine ad content (mutually exclusive with wrapper)
     public let inLine: VASTInLine?
-    
+
     /// Wrapper ad content (mutually exclusive with inLine)
     public let wrapper: VASTWrapper?
-    
+
     /// Returns true if this is an InLine ad
     public var isInLine: Bool {
         inLine != nil
     }
-    
+
     /// Returns true if this is a Wrapper ad
     public var isWrapper: Bool {
         wrapper != nil
     }
-    
+
     public init(id: String, sequence: Int? = nil, inLine: VASTInLine? = nil, wrapper: VASTWrapper? = nil) {
         self.id = id
         self.sequence = sequence
@@ -66,25 +66,25 @@ public struct VASTAd: Sendable {
 public struct VASTInLine: Sendable {
     /// Ad system information
     public let adSystem: VASTAdSystem?
-    
+
     /// Ad title
     public let adTitle: String?
-    
+
     /// Impression tracking URLs
     public let impressions: [VASTImpression]
-    
+
     /// Error tracking URLs
     public let errors: [String]
-    
+
     /// Viewable impression tracking
     public let viewableImpression: VASTViewableImpression?
-    
+
     /// Creative elements
     public let creatives: [VASTCreative]
-    
+
     /// Product extensions from VAST response
     public let extensions: [VASTProduct]
-    
+
     public init(
         adSystem: VASTAdSystem? = nil,
         adTitle: String? = nil,
@@ -110,31 +110,31 @@ public struct VASTInLine: Sendable {
 public struct VASTProduct: Sendable {
     /// Advertiser identifier
     public let advertiserID: String?
-    
+
     /// Brand name
     public let brand: String?
-    
+
     /// Product image URL
     public let imageURL: String?
-    
+
     /// Product name
     public let name: String?
-    
+
     /// Product detail page URL
     public let pdpURL: String?
-    
+
     /// Product price
     public let price: Double?
-    
+
     /// Product rating
     public let rating: Double?
-    
+
     /// Product SKU
     public let sku: String?
-    
+
     /// Stock count
     public let stockCount: Int?
-    
+
     public init(
         advertiserID: String? = nil,
         brand: String? = nil,
@@ -164,22 +164,22 @@ public struct VASTProduct: Sendable {
 public struct VASTWrapper: Sendable {
     /// Ad system information
     public let adSystem: VASTAdSystem?
-    
+
     /// URI to the wrapped VAST tag
     public let vastAdTagURI: String
-    
+
     /// Impression tracking URLs (fired in addition to wrapped ad)
     public let impressions: [VASTImpression]
-    
+
     /// Error tracking URLs
     public let errors: [String]
-    
+
     /// Viewable impression tracking
     public let viewableImpression: VASTViewableImpression?
-    
+
     /// Creative elements (tracking additions)
     public let creatives: [VASTCreative]
-    
+
     public init(
         adSystem: VASTAdSystem? = nil,
         vastAdTagURI: String,
@@ -203,10 +203,10 @@ public struct VASTWrapper: Sendable {
 public struct VASTAdSystem: Sendable {
     /// Name of the ad system
     public let name: String
-    
+
     /// Version of the ad system
     public let version: String?
-    
+
     public init(name: String, version: String? = nil) {
         self.name = name
         self.version = version
@@ -219,10 +219,10 @@ public struct VASTAdSystem: Sendable {
 public struct VASTImpression: Sendable {
     /// Optional identifier
     public let id: String?
-    
+
     /// Tracking URL
     public let url: String
-    
+
     public init(id: String? = nil, url: String) {
         self.id = id
         self.url = url
@@ -235,16 +235,16 @@ public struct VASTImpression: Sendable {
 public struct VASTViewableImpression: Sendable {
     /// ID of the viewable impression
     public let id: String?
-    
+
     /// URLs to fire when ad becomes viewable
     public let viewable: [String]
-    
+
     /// URLs to fire when ad is not viewable
     public let notViewable: [String]
-    
+
     /// URLs to fire when viewability is undetermined
     public let viewUndetermined: [String]
-    
+
     public init(
         id: String? = nil,
         viewable: [String] = [],
@@ -264,16 +264,16 @@ public struct VASTViewableImpression: Sendable {
 public struct VASTCreative: Sendable {
     /// Creative identifier
     public let id: String?
-    
+
     /// Sequence number
     public let sequence: Int?
-    
+
     /// Ad ID reference
     public let adId: String?
-    
+
     /// Linear video content
     public let linear: VASTLinear?
-    
+
     public init(
         id: String? = nil,
         sequence: Int? = nil,
@@ -293,25 +293,25 @@ public struct VASTCreative: Sendable {
 public struct VASTLinear: Sendable {
     /// Video duration in seconds
     public let duration: TimeInterval?
-    
+
     /// Media files for playback
     public let mediaFiles: [VASTMediaFile]
-    
+
     /// Click-through and tracking
     public let videoClicks: VASTVideoClicks?
-    
+
     /// Tracking events
     public let trackingEvents: [VASTTrackingEvent]
-    
+
     /// Skip offset in seconds (nil if not skippable)
     public let skipOffset: TimeInterval?
-    
+
     /// Returns the best media file for the given criteria
     public func bestMediaFile(preferredWidth: Int = 640, preferredType: String = "video/mp4") -> VASTMediaFile? {
         // Prefer MP4 files
         let mp4Files = mediaFiles.filter { $0.type == preferredType }
         let candidates = mp4Files.isEmpty ? mediaFiles : mp4Files
-        
+
         // Sort by width closest to preferred
         return candidates.min { file1, file2 in
             let diff1 = abs((file1.width ?? 0) - preferredWidth)
@@ -319,7 +319,7 @@ public struct VASTLinear: Sendable {
             return diff1 < diff2
         }
     }
-    
+
     public init(
         duration: TimeInterval? = nil,
         mediaFiles: [VASTMediaFile] = [],
@@ -341,37 +341,37 @@ public struct VASTLinear: Sendable {
 public struct VASTMediaFile: Sendable {
     /// Video URL
     public let url: String
-    
+
     /// Delivery method (progressive, streaming)
     public let delivery: String?
-    
+
     /// MIME type
     public let type: String?
-    
+
     /// Video width in pixels
     public let width: Int?
-    
+
     /// Video height in pixels
     public let height: Int?
-    
+
     /// Codec information
     public let codec: String?
-    
+
     /// Bitrate in kbps
     public let bitrate: Int?
-    
+
     /// Minimum bitrate in kbps
     public let minBitrate: Int?
-    
+
     /// Maximum bitrate in kbps
     public let maxBitrate: Int?
-    
+
     /// Whether the media is scalable
     public let scalable: Bool?
-    
+
     /// Whether aspect ratio should be maintained
     public let maintainAspectRatio: Bool?
-    
+
     public init(
         url: String,
         delivery: String? = nil,
@@ -405,13 +405,13 @@ public struct VASTMediaFile: Sendable {
 public struct VASTVideoClicks: Sendable {
     /// Click-through URL (the destination when user clicks)
     public let clickThrough: String?
-    
+
     /// Click tracking URLs (fired when user clicks)
     public let clickTracking: [String]
-    
+
     /// Custom click URLs
     public let customClick: [String]
-    
+
     public init(
         clickThrough: String? = nil,
         clickTracking: [String] = [],
@@ -455,13 +455,13 @@ public enum VASTTrackingEventType: String, Sendable, CaseIterable {
 public struct VASTTrackingEvent: Sendable {
     /// Event type
     public let event: VASTTrackingEventType
-    
+
     /// Tracking URL
     public let url: String
-    
+
     /// Offset for progress events (in seconds)
     public let offset: TimeInterval?
-    
+
     public init(event: VASTTrackingEventType, url: String, offset: TimeInterval? = nil) {
         self.event = event
         self.url = url
@@ -482,7 +482,7 @@ public enum VASTError: Error, LocalizedError, Sendable {
     case invalidURL(String)
     case timeout
     case unknown(String)
-    
+
     public var errorDescription: String? {
         switch self {
         case .networkError(let message):
@@ -505,7 +505,7 @@ public enum VASTError: Error, LocalizedError, Sendable {
             return "Unknown error: \(message)"
         }
     }
-    
+
     /// VAST error code for tracking
     public var vastErrorCode: Int {
         switch self {
