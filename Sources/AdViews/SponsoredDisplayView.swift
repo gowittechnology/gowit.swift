@@ -173,11 +173,7 @@ public struct AdImageView: View {
                     if isClickable {
                         reportClick()
                         if let redirectUrl = ad.redirect?.url, let url = URL(string: redirectUrl) {
-                            #if os(iOS) || os(tvOS)
                             UIApplication.shared.open(url)
-                            #elseif os(macOS)
-                            NSWorkspace.shared.open(url)
-                            #endif
                         }
                     }
                 }
