@@ -65,7 +65,7 @@ public struct VideoAdView: View {
                 handleTap()
             }
         }
-        .aspectRatio(configuration.aspectRatio, contentMode: .fit)
+        // Note: Aspect ratio is not enforced - parent container controls sizing
     }
     private func getScreenHeight() -> CGFloat {
         return UIScreen.main.bounds.height

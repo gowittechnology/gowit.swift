@@ -78,6 +78,9 @@ public struct VideoAdConfiguration: Sendable {
     public var requestTimeout: TimeInterval
 
     /// Aspect ratio for the video (default: 16:9)
+    /// - Warning: This property is deprecated and no longer enforced by VideoAdView.
+    ///            Manage video view sizing at the parent container level instead.
+    @available(*, deprecated, message: "aspectRatio is no longer enforced by VideoAdView. Manage sizing at the parent container level instead.")
     public var aspectRatio: CGFloat
 
     /// Enable debug logging (default: false)

@@ -118,7 +118,7 @@ VideoAdView(
 | `cornerRadius` | `CGFloat` | `8` | Corner radius |
 | `maxWrapperDepth` | `Int` | `5` | Max VAST wrapper redirects |
 | `requestTimeout` | `TimeInterval` | `30` | Network timeout (seconds) |
-| `aspectRatio` | `CGFloat` | `16/9` | Video aspect ratio |
+| ~~`aspectRatio`~~ | `CGFloat` | `16/9` | **Deprecated** - No longer enforced |
 | `debugLogging` | `Bool` | `false` | Enable console logging |
 
 ### Loading Behaviors
@@ -264,6 +264,77 @@ VideoAdView(
 
 ## Customization
 
+### View Sizing and Layout
+
+`VideoAdView` respects the size constraints provided by its parent container. You must specify the size explicitly.
+
+#### SwiftUI Integration
+
+```swift
+// Fixed size
+VideoAdView(vastURL: vastURL)
+    .frame(width: 300, height: 169)  // Explicit dimensions
+
+// Width-based with aspect ratio
+VideoAdView(vastURL: vastURL)
+    .aspectRatio(16/9, contentMode: .fit)  // Apply at parent level
+    .frame(width: 300)
+
+// Full width with calculated height
+GeometryReader { geometry in
+    VideoAdView(vastURL: vastURL)
+        .frame(
+            width: geometry.size.width,
+            height: geometry.size.width / (16/9)
+        )
+}
+```
+
+#### UIKit Integration (UITableView/UICollectionView)
+
+When using `UIHostingController` in table view cells:
+
+```swift
+// In your cell class
+private lazy var swiftUIContainerView: UIView = {
+    let view = UIView()
+    view.translatesAutoresizingMaskIntoConstraints = false
+    return view
+}()
+
+func configure(vastURL: URL, hostViewController: UIViewController) {
+    let videoView = VideoAdView(vastURL: vastURL, configuration: .default)
+    let hostingController = UIHostingController(rootView: videoView)
+    hostingController.view.translatesAutoresizingMaskIntoConstraints = false
+    
+    hostViewController.addChild(hostingController)
+    swiftUIContainerView.addSubview(hostingController.view)
+    
+    NSLayoutConstraint.activate([
+        hostingController.view.leadingAnchor.constraint(equalTo: swiftUIContainerView.leadingAnchor),
+        hostingController.view.trailingAnchor.constraint(equalTo: swiftUIContainerView.trailingAnchor),
+        hostingController.view.topAnchor.constraint(equalTo: swiftUIContainerView.topAnchor),
+        hostingController.view.bottomAnchor.constraint(equalTo: swiftUIContainerView.bottomAnchor)
+    ])
+    
+    hostingController.didMove(toParent: hostViewController)
+}
+
+// In your table view delegate
+func tableView(_ tableView: UITableView, heightForRowAt indexPath: IndexPath) -> CGFloat {
+    let horizontalPadding: CGFloat = 32  // Left + right margins
+    let verticalPadding: CGFloat = 32    // Top + bottom margins
+    let availableWidth = tableView.bounds.width - horizontalPadding
+    let aspectRatio: CGFloat = 16 / 9    // Or get from VAST XML dimensions
+    return (availableWidth / aspectRatio) + verticalPadding
+}
+```
+
+> **Tip**: If your VAST response includes `width` and `height` attributes in the XML, calculate the aspect ratio from those values:
+> ```swift
+> let aspectRatio = CGFloat(xmlWidth) / CGFloat(xmlHeight)
+> ```
+
 ### Visibility-Based Playback
 
 The video automatically pauses when scrolled out of view and resumes when visible:
@@ -283,12 +354,20 @@ VideoAdConfiguration(
 )
 ```
 
-### Custom Aspect Ratio
+### ~~Custom Aspect Ratio~~ (Deprecated)
+
+> **Note**: The `aspectRatio` configuration property is deprecated. `VideoAdView` no longer enforces an aspect ratio constraint. Instead, manage sizing at the parent container level.
 
 ```swift
+// ❌ Old way - no longer has effect
 VideoAdConfiguration(
-    aspectRatio: 4.0 / 3.0  // 4:3 aspect ratio
+    aspectRatio: 4.0 / 3.0
 )
+
+// ✅ New way - control size at parent level
+VideoAdView(vastURL: vastURL)
+    .aspectRatio(4.0 / 3.0, contentMode: .fit)
+    .frame(width: 300)
 ```
 
 ### Silent Ads
