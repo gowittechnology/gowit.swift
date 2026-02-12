@@ -50,7 +50,6 @@ public struct VideoAdView: View {
                     overlayView
                 }
             }
-            .clipShape(RoundedRectangle(cornerRadius: configuration.cornerRadius))
             .onAppear {
                 setupCallbacks()
                 viewModel.viewDidAppear(geometry: geometry)
@@ -164,8 +163,8 @@ public struct VideoAdView: View {
                 .padding(8)
             }
 
-            // Mute button
-            if configuration.showMuteButton {
+            // Mute button with auto-hide fade
+            if viewModel.shouldShowMuteButton {
                 VStack {
                     Spacer()
                     HStack {
@@ -174,6 +173,8 @@ public struct VideoAdView: View {
                     }
                 }
                 .padding(8)
+                .opacity(viewModel.isMuteButtonVisible ? 1 : 0)
+                .animation(.easeInOut(duration: 0.3), value: viewModel.isMuteButtonVisible)
             }
         }
     }
@@ -186,7 +187,7 @@ public struct VideoAdView: View {
             .padding(.horizontal, 6)
             .padding(.vertical, 2)
             .background(Color.black.opacity(0.6))
-            .clipShape(RoundedRectangle(cornerRadius: 4))
+            .clipShape(Rectangle())
     }
 
     private var muteButton: some View {
@@ -220,6 +221,9 @@ final class VideoAdViewModel: ObservableObject {
     @Published var state: VideoAdState = .idle
     @Published var isMuted: Bool = true
     @Published var player: AVPlayer?
+    @Published var hasAudioTrack: Bool = true
+    @Published var isMuteButtonVisible: Bool = false
+    private var muteButtonHideTimer: Timer?
     var onAdLoaded: ((VASTAd) -> Void)?
     var onAdStarted: (() -> Void)?
     var onAdCompleted: (() -> Void)?
@@ -266,6 +270,7 @@ final class VideoAdViewModel: ObservableObject {
     func viewDidDisappear() {
         playbackController.pause(player: player, currentState: state)
         isVisible = false
+        cancelMuteButtonTimer()
     }
     func updateVisibility(frame: CGRect, screenHeight: CGFloat) {
         let visibleHeight = min(frame.maxY, screenHeight) - max(frame.minY, 0)
@@ -286,12 +291,54 @@ final class VideoAdViewModel: ObservableObject {
                 }
             }
         }
+
+        // Show mute button on any scroll while video is visible
+        if isVisible {
+            showMuteButtonBriefly()
+        }
     }
     func toggleMute() {
         isMuted = playbackController.toggleMute(player: player, isMuted: isMuted)
+        showMuteButtonBriefly()
+    }
+
+    /// Whether the mute button should be visible based on configuration and audio track presence
+    var shouldShowMuteButton: Bool {
+        switch configuration.muteButtonBehavior {
+        case .alwaysShow:
+            return true
+        case .alwaysHide:
+            return false
+        case .automatic:
+            return hasAudioTrack
+        }
+    }
+
+    /// Briefly show the mute button, then auto-hide after 3 seconds
+    func showMuteButtonBriefly() {
+        guard shouldShowMuteButton else { return }
+        isMuteButtonVisible = true
+        scheduleMuteButtonHide()
+    }
+
+    private func scheduleMuteButtonHide() {
+        cancelMuteButtonTimer()
+        muteButtonHideTimer = Timer.scheduledTimer(withTimeInterval: 3.0, repeats: false) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                self?.isMuteButtonVisible = false
+            }
+        }
+    }
+
+    private func cancelMuteButtonTimer() {
+        muteButtonHideTimer?.invalidate()
+        muteButtonHideTimer = nil
     }
 
     func handleTap() {
+        // Show mute button briefly on any tap (standard video controls pattern)
+        showMuteButtonBriefly()
+
         if let url = playbackController.handleClick() {
             onAdClicked?(url)
         }
@@ -349,6 +396,11 @@ final class VideoAdViewModel: ObservableObject {
         }
     }
     private func setupPlayer(with url: URL) {
+        playerManager.onAudioTrackDetected = { [weak self] hasAudio in
+            self?.hasAudioTrack = hasAudio
+            GowitLogger.debug("Audio track detected: \(hasAudio)")
+        }
+
         playerManager.onPlayerReady = { [weak self] (player: AVPlayer) in
             guard let self = self else { return }
             self.observerManager.setupObservers(for: player)

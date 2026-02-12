@@ -18,6 +18,7 @@ final class VideoPlayerManager {
     var onPlayerReady: ((AVPlayer) -> Void)?
     var onError: ((VASTError) -> Void)?
     var onStatusChange: ((AVPlayerItem.Status) -> Void)?
+    var onAudioTrackDetected: ((Bool) -> Void)?
 
     // MARK: - Initialization
 
@@ -44,6 +45,13 @@ final class VideoPlayerManager {
 
                 // Create player
                 let player = createPlayer(with: localURL, isMuted: isMuted)
+
+                // Detect audio tracks
+                let asset = player.currentItem?.asset
+                let hasAudio = asset?.tracks(withMediaType: .audio).isEmpty == false
+                logger("Audio track detection: hasAudio=\(hasAudio)")
+                onAudioTrackDetected?(hasAudio)
+
                 onPlayerReady?(player)
 
             } catch {

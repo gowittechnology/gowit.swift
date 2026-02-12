@@ -69,7 +69,6 @@ public struct SponsoredProductView: View {
                         )
                 }
             }
-            .cornerRadius(8)
 
             // Product Details
             VStack(alignment: .leading, spacing: 4) {

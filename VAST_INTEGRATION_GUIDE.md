@@ -77,10 +77,10 @@ VideoAdView(
         loadingBehavior: .shimmer,
         postAdBehavior: .replay,
         isMutedByDefault: true,
-        showMuteButton: true,
+        muteButtonBehavior: .automatic,
         showAdLabel: true,
         adLabelText: "Ad",
-        cornerRadius: 12
+        cornerRadius: 0
     ),
     onAdLoaded: { ad in
         print("Ad loaded: \(ad.id)")
@@ -112,10 +112,10 @@ VideoAdView(
 | `isMutedByDefault` | `Bool` | `true` | Start video muted |
 | `visibilityThreshold` | `CGFloat` | `0.5` | Minimum visibility to auto-play (0.0-1.0) |
 | `autoPlay` | `Bool` | `true` | Auto-play when visible |
-| `showMuteButton` | `Bool` | `true` | Show mute/unmute button |
+| `muteButtonBehavior` | `MuteButtonBehavior` | `.automatic` | Mute button visibility (`.automatic`, `.alwaysShow`, `.alwaysHide`) |
 | `showAdLabel` | `Bool` | `true` | Show "Ad" label |
 | `adLabelText` | `String` | `"Ad"` | Custom label text |
-| `cornerRadius` | `CGFloat` | `8` | Corner radius |
+| `cornerRadius` | `CGFloat` | `0` | Corner radius |
 | `maxWrapperDepth` | `Int` | `5` | Max VAST wrapper redirects |
 | `requestTimeout` | `TimeInterval` | `30` | Network timeout (seconds) |
 | ~~`aspectRatio`~~ | `CGFloat` | `16/9` | **Deprecated** - No longer enforced |
@@ -403,9 +403,16 @@ VideoAdView(vastURL: vastURL)
 ### Silent Ads
 
 ```swift
+// Automatic (default) — hides mute button when video has no audio track
 VideoAdConfiguration(
     isMutedByDefault: true,
-    showMuteButton: false  // Hide mute button
+    muteButtonBehavior: .automatic
+)
+
+// Force hide the mute button
+VideoAdConfiguration(
+    isMutedByDefault: true,
+    muteButtonBehavior: .alwaysHide
 )
 ```
 

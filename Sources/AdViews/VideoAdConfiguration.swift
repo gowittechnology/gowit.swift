@@ -42,6 +42,20 @@ public struct VideoAdConfiguration: Sendable {
         case hide
     }
 
+    // MARK: - Mute Button Behavior
+
+    /// Controls mute button visibility
+    public enum MuteButtonBehavior: Sendable, Equatable {
+        /// Always show the mute button
+        case alwaysShow
+
+        /// Never show the mute button
+        case alwaysHide
+
+        /// Show only when the video has an audio track (default)
+        case automatic
+    }
+
     // MARK: - Properties
 
     /// What to display while loading (default: hidden)
@@ -59,8 +73,16 @@ public struct VideoAdConfiguration: Sendable {
     /// Whether to auto-play when visible (default: true)
     public var autoPlay: Bool
 
-    /// Whether to show the mute/unmute button (default: true)
-    public var showMuteButton: Bool
+    /// Mute button visibility behavior (default: .automatic — shows only when video has audio)
+    public var muteButtonBehavior: MuteButtonBehavior
+
+    /// Whether to show the mute/unmute button
+    /// - Warning: This property is deprecated. Use `muteButtonBehavior` instead.
+    @available(*, deprecated, message: "Use muteButtonBehavior instead")
+    public var showMuteButton: Bool {
+        get { muteButtonBehavior != .alwaysHide }
+        set { muteButtonBehavior = newValue ? .automatic : .alwaysHide }
+    }
 
     /// Whether to show a "Sponsored" or "Ad" label (default: true)
     public var showAdLabel: Bool
@@ -68,7 +90,7 @@ public struct VideoAdConfiguration: Sendable {
     /// Custom text for the ad label (default: "Ad")
     public var adLabelText: String
 
-    /// Corner radius for the video view (default: 8)
+    /// Corner radius for the video view (default: 0)
     public var cornerRadius: CGFloat
 
     /// Maximum wrapper redirect depth (default: 5)
@@ -95,10 +117,10 @@ public struct VideoAdConfiguration: Sendable {
         isMutedByDefault: Bool = true,
         visibilityThreshold: CGFloat = 0.5,
         autoPlay: Bool = true,
-        showMuteButton: Bool = true,
+        muteButtonBehavior: MuteButtonBehavior = .automatic,
         showAdLabel: Bool = true,
         adLabelText: String = "Ad",
-        cornerRadius: CGFloat = 8,
+        cornerRadius: CGFloat = 0,
         maxWrapperDepth: Int = 5,
         requestTimeout: TimeInterval = 30,
         aspectRatio: CGFloat = 16.0 / 9.0,
@@ -109,7 +131,7 @@ public struct VideoAdConfiguration: Sendable {
         self.isMutedByDefault = isMutedByDefault
         self.visibilityThreshold = visibilityThreshold
         self.autoPlay = autoPlay
-        self.showMuteButton = showMuteButton
+        self.muteButtonBehavior = muteButtonBehavior
         self.showAdLabel = showAdLabel
         self.adLabelText = adLabelText
         self.cornerRadius = cornerRadius
