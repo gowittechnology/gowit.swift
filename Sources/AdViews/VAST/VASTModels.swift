@@ -52,6 +52,12 @@ public struct VASTAd: Sendable {
         wrapper != nil
     }
 
+    /// Convenience access to the ad trigger for firing tracking events.
+    /// Use `trigger.click()`, `trigger.impression()`, `trigger.viewability()` to fire tracking URLs.
+    public var trigger: VASTTrigger? {
+        inLine?.trigger
+    }
+
     public init(id: String, sequence: Int? = nil, inLine: VASTInLine? = nil, wrapper: VASTWrapper? = nil) {
         self.id = id
         self.sequence = sequence
@@ -85,6 +91,9 @@ public struct VASTInLine: Sendable {
     /// Product extensions from VAST response
     public let extensions: [VASTProduct]
 
+    /// Trigger object for manually firing tracking events (click, impression, viewability)
+    public let trigger: VASTTrigger
+
     public init(
         adSystem: VASTAdSystem? = nil,
         adTitle: String? = nil,
@@ -92,7 +101,8 @@ public struct VASTInLine: Sendable {
         errors: [String] = [],
         viewableImpression: VASTViewableImpression? = nil,
         creatives: [VASTCreative] = [],
-        extensions: [VASTProduct] = []
+        extensions: [VASTProduct] = [],
+        trigger: VASTTrigger = VASTTrigger()
     ) {
         self.adSystem = adSystem
         self.adTitle = adTitle
@@ -101,6 +111,7 @@ public struct VASTInLine: Sendable {
         self.viewableImpression = viewableImpression
         self.creatives = creatives
         self.extensions = extensions
+        self.trigger = trigger
     }
 }
 
@@ -155,6 +166,51 @@ public struct VASTProduct: Sendable {
         self.rating = rating
         self.sku = sku
         self.stockCount = stockCount
+    }
+}
+
+// MARK: - VAST Trigger
+
+/// Trigger object for manually firing VAST tracking events.
+/// Access via `ad.trigger` to fire click, impression, or viewability tracking URLs.
+public struct VASTTrigger: Sendable {
+    private let impressionURLs: [String]
+    private let clickTrackingURLs: [String]
+    private let viewableURLs: [String]
+
+    public init(
+        impressionURLs: [String] = [],
+        clickTrackingURLs: [String] = [],
+        viewableURLs: [String] = []
+    ) {
+        self.impressionURLs = impressionURLs
+        self.clickTrackingURLs = clickTrackingURLs
+        self.viewableURLs = viewableURLs
+    }
+
+    /// Fire click tracking URLs in the background.
+    /// Call this when the user taps a product and the app navigates to the PDP page.
+    public func click() {
+        fire(urls: clickTrackingURLs)
+    }
+
+    /// Fire impression tracking URLs in the background.
+    public func impression() {
+        fire(urls: impressionURLs)
+    }
+
+    /// Fire viewability tracking URLs in the background.
+    public func viewability() {
+        fire(urls: viewableURLs)
+    }
+
+    private func fire(urls: [String]) {
+        for urlString in urls {
+            guard let url = URL(string: urlString) else { continue }
+            Task {
+                _ = try? await URLSession.shared.data(from: url)
+            }
+        }
     }
 }
 

@@ -262,6 +262,36 @@ VideoAdView(
 | `rating` | `Double?` | Product rating |
 | `stockCount` | `Int?` | Stock count |
 
+### Ad Trigger
+
+The `VASTTrigger` object is available on the ad via `ad.trigger` and provides methods for firing tracking events:
+
+| Method | Description |
+|--------|-------------|
+| `trigger.click()` | Fire click tracking — call when the user taps a product and navigates to PDP |
+
+
+> [!IMPORTANT]
+> When a user taps on a product and your app navigates to the product detail page (PDP), you **must** call `ad.trigger?.click()` to count the click. This is essential for accurate click attribution and campaign reporting.
+
+```swift
+// Store the ad from the callback
+var currentAd: VASTAd?
+
+VideoAdView(
+    vastURL: vastURL,
+    onAdLoaded: { ad in
+        currentAd = ad
+    }
+)
+
+// When the user taps a product and you navigate to PDP:
+func onProductTapped(_ product: VASTProduct) {
+    navigateToPDP(sku: product.sku)
+    currentAd?.trigger?.click()
+}
+```
+
 ## Customization
 
 ### View Sizing and Layout

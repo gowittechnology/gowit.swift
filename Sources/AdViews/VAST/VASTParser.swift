@@ -232,13 +232,24 @@ public final class VASTParser: NSObject, XMLParserDelegate, @unchecked Sendable 
                 }
             }
         }
+        // Build merged trigger
+        let mergedClickTracking = mergedCreatives.compactMap { $0.linear?.videoClicks?.clickTracking }.flatMap { $0 }
+        let mergedImpressionURLs = mergedImpressions.map { $0.url }
+        let mergedViewableURLs = mergedViewableImpression?.viewable ?? []
+        let mergedTrigger = VASTTrigger(
+            impressionURLs: mergedImpressionURLs,
+            clickTrackingURLs: mergedClickTracking,
+            viewableURLs: mergedViewableURLs
+        )
         let mergedInLine = VASTInLine(
             adSystem: inLine.adSystem ?? wrapper.adSystem,
             adTitle: inLine.adTitle,
             impressions: mergedImpressions,
             errors: mergedErrors,
             viewableImpression: mergedViewableImpression,
-            creatives: mergedCreatives
+            creatives: mergedCreatives,
+            extensions: inLine.extensions,
+            trigger: mergedTrigger
         )
         let mergedAd = VASTAd(
             id: originalAd.id,
@@ -429,6 +440,15 @@ public final class VASTParser: NSObject, XMLParserDelegate, @unchecked Sendable 
             currentAdId = nil
             currentAdSequence = nil
         case "InLine":
+            // Build trigger from parsed tracking URLs
+            let clickTrackingURLs = creatives.compactMap { $0.linear?.videoClicks?.clickTracking }.flatMap { $0 }
+            let impressionURLs = impressions.map { $0.url }
+            let viewableURLs = currentViewableImpression?.viewable ?? viewable
+            let trigger = VASTTrigger(
+                impressionURLs: impressionURLs,
+                clickTrackingURLs: clickTrackingURLs,
+                viewableURLs: viewableURLs
+            )
             currentInLine = VASTInLine(
                 adSystem: currentAdSystem,
                 adTitle: adTitle,
@@ -436,7 +456,8 @@ public final class VASTParser: NSObject, XMLParserDelegate, @unchecked Sendable 
                 errors: errors,
                 viewableImpression: currentViewableImpression,
                 creatives: creatives,
-                extensions: products
+                extensions: products,
+                trigger: trigger
             )
             currentAdSystem = nil
             currentViewableImpression = nil
