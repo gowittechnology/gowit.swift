@@ -155,13 +155,13 @@ public struct VideoAdView: View {
                 if configuration.showAdLabel {
                     adLabelBadge
                 }
-                
+
                 if viewModel.shouldShowMuteButton {
                     muteButton
                         .opacity(viewModel.effectiveMuteButtonOpacity)
                         .animation(.easeInOut(duration: 0.3), value: viewModel.isMuteButtonVisible)
                 }
-                
+
                 Spacer()
             }
             Spacer()
