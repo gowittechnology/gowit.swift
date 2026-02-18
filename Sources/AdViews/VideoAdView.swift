@@ -166,8 +166,8 @@ public struct VideoAdView: View {
             }
             Spacer()
         }
-        .padding(.leading, 12)
-        .padding(.top, 12)
+        .padding(.leading, 14)
+        .padding(.top, 14)
     }
 
     private var adLabelBadge: some View {
@@ -185,11 +185,11 @@ public struct VideoAdView: View {
         Button(action: {
             viewModel.toggleMute()
         }, label: {
-            Image(viewModel.isMuted ? "mute-icon" : "unmute-icon", bundle: .module)
+            Image(viewModel.isMuted ? "unmute-icon" : "mute-icon", bundle: .module)
                 .resizable()
                 .renderingMode(.original)
                 .aspectRatio(contentMode: .fit)
-                .frame(width: 24, height: 24)
+                .frame(width: 30, height: 30)
         })
         .buttonStyle(PlainButtonStyle())
     }
