@@ -184,8 +184,11 @@ public struct VideoAdView: View {
         Button(action: {
             viewModel.toggleMute()
         }, label: {
-            Image(systemName: viewModel.isMuted ? "speaker.slash.fill" : "speaker.wave.2.fill")
-                .font(.system(size: 16, weight: .medium))
+            Image(viewModel.isMuted ? "mute-icon" : "unmute-icon", bundle: .module)
+                .resizable()
+                .renderingMode(.template)
+                .aspectRatio(contentMode: .fit)
+                .frame(width: 20, height: 20)
                 .foregroundColor(.white)
                 .frame(width: 36, height: 36)
                 .background(Color.black.opacity(0.6))

@@ -30,6 +30,7 @@ let package = Package(
         .target(
             name: "AdViews",
             dependencies: ["Gowit"],
+            resources: [.process("Resources")]
         ),
         .testTarget(
             name: "gowit.swiftTests",
