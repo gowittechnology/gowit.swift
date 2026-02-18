@@ -158,7 +158,7 @@ public struct VideoAdView: View {
                 
                 if viewModel.shouldShowMuteButton {
                     muteButton
-                        .opacity(viewModel.isMuteButtonVisible ? 1 : 0)
+                        .opacity(viewModel.effectiveMuteButtonOpacity)
                         .animation(.easeInOut(duration: 0.3), value: viewModel.isMuteButtonVisible)
                 }
                 
@@ -166,7 +166,8 @@ public struct VideoAdView: View {
             }
             Spacer()
         }
-        .padding(8)
+        .padding(.leading, 12)
+        .padding(.top, 12)
     }
 
     private var adLabelBadge: some View {
@@ -186,13 +187,9 @@ public struct VideoAdView: View {
         }, label: {
             Image(viewModel.isMuted ? "mute-icon" : "unmute-icon", bundle: .module)
                 .resizable()
-                .renderingMode(.template)
+                .renderingMode(.original)
                 .aspectRatio(contentMode: .fit)
-                .frame(width: 20, height: 20)
-                .foregroundColor(.white)
-                .frame(width: 36, height: 36)
-                .background(Color.black.opacity(0.6))
-                .clipShape(Circle())
+                .frame(width: 24, height: 24)
         })
         .buttonStyle(PlainButtonStyle())
     }
@@ -304,6 +301,18 @@ final class VideoAdViewModel: ObservableObject {
             return false
         case .automatic:
             return hasAudioTrack
+        }
+    }
+
+    /// Opacity for the mute button — always 1 for alwaysShow, timer-driven for automatic
+    var effectiveMuteButtonOpacity: Double {
+        switch configuration.muteButtonBehavior {
+        case .alwaysShow:
+            return 1
+        case .automatic:
+            return isMuteButtonVisible ? 1 : 0
+        case .alwaysHide:
+            return 0
         }
     }
 
