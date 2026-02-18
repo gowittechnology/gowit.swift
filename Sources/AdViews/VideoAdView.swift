@@ -150,33 +150,23 @@ public struct VideoAdView: View {
         }
     }
     private var overlayView: some View {
-        ZStack {
-            // Ad label
-            if configuration.showAdLabel {
-                VStack {
-                    HStack {
-                        adLabelBadge
-                        Spacer()
-                    }
-                    Spacer()
+        VStack {
+            HStack(spacing: 8) {
+                if configuration.showAdLabel {
+                    adLabelBadge
                 }
-                .padding(8)
-            }
-
-            // Mute button with auto-hide fade
-            if viewModel.shouldShowMuteButton {
-                VStack {
-                    Spacer()
-                    HStack {
-                        Spacer()
-                        muteButton
-                    }
+                
+                if viewModel.shouldShowMuteButton {
+                    muteButton
+                        .opacity(viewModel.isMuteButtonVisible ? 1 : 0)
+                        .animation(.easeInOut(duration: 0.3), value: viewModel.isMuteButtonVisible)
                 }
-                .padding(8)
-                .opacity(viewModel.isMuteButtonVisible ? 1 : 0)
-                .animation(.easeInOut(duration: 0.3), value: viewModel.isMuteButtonVisible)
+                
+                Spacer()
             }
+            Spacer()
         }
+        .padding(8)
     }
 
     private var adLabelBadge: some View {
