@@ -113,6 +113,9 @@ VideoAdView(
 | `visibilityThreshold` | `CGFloat` | `0.5` | Minimum visibility to auto-play (0.0-1.0) |
 | `autoPlay` | `Bool` | `true` | Auto-play when visible |
 | `muteButtonBehavior` | `MuteButtonBehavior` | `.automatic` | Mute button visibility (`.automatic`, `.alwaysShow`, `.alwaysHide`) |
+| `muteButtonCorner` | `MuteButtonCorner` | `.topLeading` | Corner where the mute button is anchored (`.topLeading`, `.topTrailing`, `.bottomLeading`, `.bottomTrailing`) |
+| `muteButtonSize` | `CGFloat` | `30` | Width and height of the mute button in points |
+| `muteButtonPadding` | `CGFloat` | `14` | Distance of the mute button from the nearest edges in points |
 | `showAdLabel` | `Bool` | `true` | Show "Ad" label |
 | `adLabelText` | `String` | `"Ad"` | Custom label text |
 | `cornerRadius` | `CGFloat` | `0` | Corner radius |
@@ -154,6 +157,60 @@ VideoAdView(
 
 // Hide the view
 .postAdBehavior: .hide
+```
+
+### Mute Button Appearance
+
+The mute button's position, size, and edge spacing can all be controlled independently through `VideoAdConfiguration`.
+
+#### Corner Position
+
+```swift
+// Top-left (default) — placed inline with the "Ad" label badge
+VideoAdConfiguration(muteButtonCorner: .topLeading)
+
+// Top-right — cleanly separated from the ad label
+VideoAdConfiguration(muteButtonCorner: .topTrailing)
+
+// Bottom-right — common pattern for video controls
+VideoAdConfiguration(muteButtonCorner: .bottomTrailing)
+
+// Bottom-left
+VideoAdConfiguration(muteButtonCorner: .bottomLeading)
+```
+
+> **Tip:** When `showAdLabel` is `true` and `muteButtonCorner` is `.topLeading`, the mute button sits inline with the ad label badge (same row, same padding). For all other corners the mute button is positioned independently.
+
+#### Size
+
+```swift
+// Smaller button (e.g. 24×24 pt)
+VideoAdConfiguration(muteButtonSize: 24)
+
+// Larger button
+VideoAdConfiguration(muteButtonSize: 40)
+```
+
+#### Edge Padding
+
+```swift
+// Tighter margin from the edges (e.g. 8 pt)
+VideoAdConfiguration(muteButtonPadding: 8)
+
+// More breathing room (e.g. 20 pt)
+VideoAdConfiguration(muteButtonPadding: 20)
+```
+
+#### Combined Example
+
+```swift
+var config = VideoAdConfiguration.default
+config.muteButtonCorner  = .topTrailing
+config.muteButtonSize    = 24
+config.muteButtonPadding = 16
+
+VideoAdView(vastURL: vastURL, configuration: config)
+    .frame(height: 220)
 ```
 
 ### Preset Configurations

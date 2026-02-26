@@ -150,24 +150,40 @@ public struct VideoAdView: View {
         }
     }
     private var overlayView: some View {
-        VStack {
-            HStack(spacing: 8) {
-                if configuration.showAdLabel {
-                    adLabelBadge
-                }
+        ZStack {
+            // Ad label is always anchored to the top-leading corner
+            if configuration.showAdLabel || (viewModel.shouldShowMuteButton && configuration.muteButtonCorner == .topLeading) {
+                VStack {
+                    HStack(spacing: 8) {
+                        if configuration.showAdLabel {
+                            adLabelBadge
+                        }
 
-                if viewModel.shouldShowMuteButton {
-                    muteButton
-                        .opacity(viewModel.effectiveMuteButtonOpacity)
-                        .animation(.easeInOut(duration: 0.3), value: viewModel.isMuteButtonVisible)
-                }
+                        // When the mute button is configured for topLeading, keep it
+                        // in-line with the ad label badge (existing side-by-side layout)
+                        if viewModel.shouldShowMuteButton && configuration.muteButtonCorner == .topLeading {
+                            muteButton
+                                .opacity(viewModel.effectiveMuteButtonOpacity)
+                                .animation(.easeInOut(duration: 0.3), value: viewModel.isMuteButtonVisible)
+                        }
 
-                Spacer()
+                        Spacer()
+                    }
+                    Spacer()
+                }
+                .padding(.leading, configuration.muteButtonPadding)
+                .padding(.top, configuration.muteButtonPadding)
             }
-            Spacer()
+
+            // For any other corner, position the mute button independently
+            if viewModel.shouldShowMuteButton && configuration.muteButtonCorner != .topLeading {
+                muteButton
+                    .opacity(viewModel.effectiveMuteButtonOpacity)
+                    .animation(.easeInOut(duration: 0.3), value: viewModel.isMuteButtonVisible)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: configuration.muteButtonCorner.swiftUIAlignment)
+                    .padding(configuration.muteButtonCorner.edgeInsets(padding: configuration.muteButtonPadding))
+            }
         }
-        .padding(.leading, 14)
-        .padding(.top, 14)
     }
 
     private var adLabelBadge: some View {
@@ -189,7 +205,7 @@ public struct VideoAdView: View {
                 .resizable()
                 .renderingMode(.original)
                 .aspectRatio(contentMode: .fit)
-                .frame(width: 30, height: 30)
+                .frame(width: configuration.muteButtonSize, height: configuration.muteButtonSize)
         })
         .buttonStyle(PlainButtonStyle())
     }
@@ -255,6 +271,14 @@ final class VideoAdViewModel: ObservableObject {
     }
     func viewDidAppear(geometry: GeometryProxy) {
         loadAd()
+
+        // Re-check visibility on every appearance (tab switch, sheet/navigation dismissal).
+        // onChange(of: geometry.frame) only fires when the frame *changes*, so it is silent
+        // when the view returns to the exact same position — e.g. switching back to the same
+        // tab. Without this call, isVisible stays false and the player never resumes.
+        guard state != .idle && state != .loading else { return }
+        let frame = geometry.frame(in: .global)
+        updateVisibility(frame: frame, screenHeight: UIScreen.main.bounds.height)
     }
 
     func viewDidDisappear() {

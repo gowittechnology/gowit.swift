@@ -56,6 +56,23 @@ public struct VideoAdConfiguration: Sendable {
         case automatic
     }
 
+    // MARK: - Mute Button Corner
+
+    /// Defines which corner of the video view the mute button is anchored to
+    public enum MuteButtonCorner: Sendable, Equatable {
+        /// Top-left corner (default)
+        case topLeading
+
+        /// Top-right corner
+        case topTrailing
+
+        /// Bottom-left corner
+        case bottomLeading
+
+        /// Bottom-right corner
+        case bottomTrailing
+    }
+
     // MARK: - Properties
 
     /// What to display while loading (default: hidden)
@@ -75,6 +92,15 @@ public struct VideoAdConfiguration: Sendable {
 
     /// Mute button visibility behavior (default: .automatic — shows only when video has audio)
     public var muteButtonBehavior: MuteButtonBehavior
+
+    /// Corner of the video view where the mute button is anchored (default: .topLeading)
+    public var muteButtonCorner: MuteButtonCorner
+
+    /// Size of the mute button in points — width and height are equal (default: 30)
+    public var muteButtonSize: CGFloat
+
+    /// Distance of the mute button from the nearest edges in points (default: 14)
+    public var muteButtonPadding: CGFloat
 
     /// Whether to show the mute/unmute button
     /// - Warning: This property is deprecated. Use `muteButtonBehavior` instead.
@@ -118,6 +144,9 @@ public struct VideoAdConfiguration: Sendable {
         visibilityThreshold: CGFloat = 0.5,
         autoPlay: Bool = true,
         muteButtonBehavior: MuteButtonBehavior = .automatic,
+        muteButtonCorner: MuteButtonCorner = .topLeading,
+        muteButtonSize: CGFloat = 30,
+        muteButtonPadding: CGFloat = 14,
         showAdLabel: Bool = true,
         adLabelText: String = "Ad",
         cornerRadius: CGFloat = 0,
@@ -132,6 +161,9 @@ public struct VideoAdConfiguration: Sendable {
         self.visibilityThreshold = visibilityThreshold
         self.autoPlay = autoPlay
         self.muteButtonBehavior = muteButtonBehavior
+        self.muteButtonCorner = muteButtonCorner
+        self.muteButtonSize = muteButtonSize
+        self.muteButtonPadding = muteButtonPadding
         self.showAdLabel = showAdLabel
         self.adLabelText = adLabelText
         self.cornerRadius = cornerRadius
@@ -176,6 +208,34 @@ public struct VideoAdConfiguration: Sendable {
         var config = VideoAdConfiguration()
         config.loadingBehavior = .text(text)
         return config
+    }
+}
+
+// MARK: - MuteButtonCorner Layout Helpers (internal)
+
+extension VideoAdConfiguration.MuteButtonCorner {
+    /// The SwiftUI `Alignment` that corresponds to this corner
+    var swiftUIAlignment: Alignment {
+        switch self {
+        case .topLeading:    return .topLeading
+        case .topTrailing:   return .topTrailing
+        case .bottomLeading: return .bottomLeading
+        case .bottomTrailing: return .bottomTrailing
+        }
+    }
+
+    /// `EdgeInsets` that push the button away from its two anchored edges by `padding` points
+    func edgeInsets(padding: CGFloat) -> EdgeInsets {
+        switch self {
+        case .topLeading:
+            return EdgeInsets(top: padding, leading: padding, bottom: 0, trailing: 0)
+        case .topTrailing:
+            return EdgeInsets(top: padding, leading: 0, bottom: 0, trailing: padding)
+        case .bottomLeading:
+            return EdgeInsets(top: 0, leading: padding, bottom: padding, trailing: 0)
+        case .bottomTrailing:
+            return EdgeInsets(top: 0, leading: 0, bottom: padding, trailing: padding)
+        }
     }
 }
 
