@@ -39,7 +39,10 @@ final class VideoPlayerManager {
 
                 let player = createPlayer(with: localURL, isMuted: isMuted)
 
-                let hasAudio = player.currentItem?.asset.tracks(withMediaType: .audio).isEmpty == false
+                // Use the async API (iOS 15+) to avoid blocking the main thread while
+                // AVAsset loads track metadata for the first time.
+                let audioTracks = try? await player.currentItem?.asset.loadTracks(withMediaType: .audio)
+                let hasAudio = audioTracks?.isEmpty == false
                 logger("Audio track detection: hasAudio=\(hasAudio)")
                 onAudioTrackDetected?(hasAudio)
 

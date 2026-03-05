@@ -12,6 +12,7 @@ final class PlayerObserverManager {
 
     private var timeObserver: Any?
     private var endObserver: NSObjectProtocol?
+    private var failureObserver: NSObjectProtocol?
     private var statusObserver: NSKeyValueObservation?
 
     // MARK: - Callbacks
@@ -56,7 +57,7 @@ final class PlayerObserverManager {
         }
 
         // Observe playback failures
-        NotificationCenter.default.addObserver(
+        failureObserver = NotificationCenter.default.addObserver(
             forName: .AVPlayerItemFailedToPlayToEndTime,
             object: playerItem,
             queue: .main
@@ -80,6 +81,11 @@ final class PlayerObserverManager {
         if let observer = endObserver {
             NotificationCenter.default.removeObserver(observer)
             endObserver = nil
+        }
+
+        if let observer = failureObserver {
+            NotificationCenter.default.removeObserver(observer)
+            failureObserver = nil
         }
 
         statusObserver?.invalidate()
