@@ -102,6 +102,12 @@ actor VideoAdCache {
 
     // MARK: - Eviction
 
+    private struct CacheEntry {
+        let url: URL
+        let modified: Date
+        let size: Int
+    }
+
     /// Removes stale files, then trims to `maxCacheSizeBytes` by deleting
     /// the least-recently-used (oldest modification date) entries first.
     private func evict() {
@@ -112,7 +118,7 @@ actor VideoAdCache {
         ) else { return }
 
         let now = Date()
-        var survivors: [(url: URL, modified: Date, size: Int)] = []
+        var survivors: [CacheEntry] = []
 
         // Pass 1 — remove expired entries
         for file in files {
@@ -122,7 +128,7 @@ actor VideoAdCache {
             if now.timeIntervalSince(modified) > maxCacheAge {
                 try? fileManager.removeItem(at: file)
             } else {
-                survivors.append((file, modified, size))
+                survivors.append(CacheEntry(url: file, modified: modified, size: size))
             }
         }
 
