@@ -131,6 +131,10 @@ public struct VideoAdConfiguration: Sendable {
     @available(*, deprecated, message: "aspectRatio is no longer enforced by VideoAdView. Manage sizing at the parent container level instead.")
     public var aspectRatio: CGFloat
 
+    /// Cache downloaded video files to disk so repeat plays are served instantly
+    /// from `Library/Caches/GowitVideoCache/` without a network round-trip (default: true)
+    public var videoCacheEnabled: Bool
+
     /// Enable debug logging (default: false)
     public var debugLogging: Bool
 
@@ -153,6 +157,7 @@ public struct VideoAdConfiguration: Sendable {
         maxWrapperDepth: Int = 5,
         requestTimeout: TimeInterval = 30,
         aspectRatio: CGFloat = 16.0 / 9.0,
+        videoCacheEnabled: Bool = true,
         debugLogging: Bool = false
     ) {
         self.loadingBehavior = loadingBehavior
@@ -170,6 +175,7 @@ public struct VideoAdConfiguration: Sendable {
         self.maxWrapperDepth = maxWrapperDepth
         self.requestTimeout = requestTimeout
         self.aspectRatio = aspectRatio
+        self.videoCacheEnabled = videoCacheEnabled
         self.debugLogging = debugLogging
     }
 

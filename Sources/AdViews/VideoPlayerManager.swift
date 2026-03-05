@@ -29,26 +29,17 @@ final class VideoPlayerManager {
 
     // MARK: - Player Setup
 
-    /// Prepare and create player from video URL
+    /// Prepare and create a player from a video URL, using the disk cache when enabled.
     func setupPlayer(with url: URL, isMuted: Bool) {
         logger("Preparing video from URL...")
 
-        // The CDN returns fmp4 without Content-Length header, causing CoreMediaErrorDomain -12939
-        // Workaround: Download to temporary file first, then play from local file
         Task {
             do {
-                // First resolve redirects
-                let finalURL = try await resolveRedirects(for: url)
+                let localURL = try await resolveLocalURL(for: url)
 
-                // Download to temp file
-                let localURL = try await downloadVideoToTemp(from: finalURL)
-
-                // Create player
                 let player = createPlayer(with: localURL, isMuted: isMuted)
 
-                // Detect audio tracks
-                let asset = player.currentItem?.asset
-                let hasAudio = asset?.tracks(withMediaType: .audio).isEmpty == false
+                let hasAudio = player.currentItem?.asset.tracks(withMediaType: .audio).isEmpty == false
                 logger("Audio track detection: hasAudio=\(hasAudio)")
                 onAudioTrackDetected?(hasAudio)
 
@@ -59,6 +50,40 @@ final class VideoPlayerManager {
                 onError?(.networkError(error.localizedDescription))
             }
         }
+    }
+
+    // MARK: - Local URL Resolution
+
+    /// Returns a local file URL ready for AVPlayer, hitting the disk cache first.
+    ///
+    /// **Cache enabled (default):**
+    /// - HIT  → return cached file immediately, no network activity.
+    /// - MISS → resolve redirects, download, store in cache, return cached URL.
+    ///
+    /// **Cache disabled:**
+    /// - Always resolves redirects and downloads to a temporary file.
+    private func resolveLocalURL(for url: URL) async throws -> URL {
+        if configuration.videoCacheEnabled {
+            if let cached = await VideoAdCache.shared.cachedFileURL(for: url) {
+                logger("Cache HIT — serving from disk, no download needed")
+                return cached
+            }
+            logger("Cache MISS — downloading...")
+        }
+
+        // The CDN returns fmp4 without Content-Length, causing CoreMediaErrorDomain -12939.
+        // Workaround: download to a local file first, then play from disk.
+        let finalURL = try await resolveRedirects(for: url)
+        let downloadedURL = try await downloadVideo(from: finalURL)
+
+        if configuration.videoCacheEnabled {
+            let cachedURL = await VideoAdCache.shared.store(localFile: downloadedURL, for: url)
+            logger("Video stored in disk cache")
+            return cachedURL
+        }
+
+        // Cache disabled: move to a stable temp path so the URLSession temp isn't recycled
+        return try moveToStableTemp(downloadedURL)
     }
 
     // MARK: - URL Resolution
@@ -78,10 +103,9 @@ final class VideoPlayerManager {
         return url
     }
 
-    /// Download video to temporary file
-    private func downloadVideoToTemp(from url: URL) async throws -> URL {
-        logger("Downloading video to temporary file...")
-
+    /// Download a video and return the URLSession-managed temporary file URL.
+    private func downloadVideo(from url: URL) async throws -> URL {
+        logger("Downloading video...")
         let (tempURL, response) = try await URLSession.shared.download(from: url)
 
         guard let httpResponse = response as? HTTPURLResponse,
@@ -89,17 +113,16 @@ final class VideoPlayerManager {
             throw VASTError.networkError("Failed to download video")
         }
 
-        // Move to a more predictable temp location
+        return tempURL
+    }
+
+    /// Move a URLSession temporary file to a stable path so AVPlayer can use it
+    /// even after the URLSession session cleans up its own temp files.
+    private func moveToStableTemp(_ url: URL) throws -> URL {
         let fileName = "vast_video_\(UUID().uuidString).mp4"
         let destinationURL = FileManager.default.temporaryDirectory.appendingPathComponent(fileName)
-
-        // Remove existing file if any
         try? FileManager.default.removeItem(at: destinationURL)
-
-        // Move downloaded file
-        try FileManager.default.moveItem(at: tempURL, to: destinationURL)
-
-        logger("Video downloaded to: \(destinationURL.lastPathComponent)")
+        try FileManager.default.moveItem(at: url, to: destinationURL)
         return destinationURL
     }
 

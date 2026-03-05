@@ -122,6 +122,7 @@ VideoAdView(
 | `maxWrapperDepth` | `Int` | `5` | Max VAST wrapper redirects |
 | `requestTimeout` | `TimeInterval` | `30` | Network timeout (seconds) |
 | ~~`aspectRatio`~~ | `CGFloat` | `16/9` | **Deprecated** - No longer enforced |
+| `videoCacheEnabled` | `Bool` | `true` | Cache downloaded video files to disk for instant repeat loads |
 | `debugLogging` | `Bool` | `false` | Enable console logging |
 
 ### Loading Behaviors
@@ -471,6 +472,40 @@ VideoAdConfiguration(
     isMutedByDefault: true,
     muteButtonBehavior: .alwaysHide
 )
+```
+
+### Video Caching
+
+`VideoAdView` downloads video files before playback to work around a CDN
+limitation where `fmp4` streams are served without a `Content-Length` header.
+By default this download is cached to disk so **subsequent plays of the same
+ad are instantaneous** — no network round-trip at all.
+
+#### How it works
+
+| Scenario | Behaviour |
+|---|---|
+| First play | Resolve redirects → download → store in `Library/Caches/GowitVideoCache/` |
+| Repeat play (same URL) | Serve from disk cache immediately, skip all network activity |
+| OS low-storage eviction | Cache directory is purged by iOS; next play re-downloads transparently |
+
+#### Eviction policy
+
+The SDK runs its own eviction after every cache write:
+
+- Files not accessed for **7 days** are deleted.
+- If the total cache size exceeds **200 MB**, the least-recently-used files are
+  removed until the cache is back at 150 MB.
+
+The LRU policy is access-time based: every cache hit updates the file's
+modification date, so actively-used ads are never evicted first.
+
+#### Disabling the cache
+
+```swift
+// Opt out — video is always re-downloaded (useful for GDPR / data-minimisation requirements)
+var config = VideoAdConfiguration.default
+config.videoCacheEnabled = false
 ```
 
 ## Troubleshooting
