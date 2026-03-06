@@ -69,7 +69,6 @@ public struct SponsoredProductView: View {
                         )
                 }
             }
-            .cornerRadius(8)
 
             // Product Details
             VStack(alignment: .leading, spacing: 4) {
@@ -202,11 +201,7 @@ public struct SponsoredProductAdView: View {
 
         // Handle redirect if available
         if let redirectUrl = ad.clickUrl, let url = URL(string: redirectUrl) {
-            #if os(iOS) || os(tvOS)
             UIApplication.shared.open(url)
-            #elseif os(macOS)
-            NSWorkspace.shared.open(url)
-            #endif
         }
     }
 

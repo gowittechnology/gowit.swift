@@ -21,7 +21,7 @@ Add the following dependency to your `Package.swift` file:
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/gowittechnology/gowit-swift.git", from: "1.0.1")
+    .package(url: "https://github.com/gowittechnology/gowit-swift.git", from: "1.0.2")
 ]
 ```
 
@@ -274,6 +274,112 @@ The SDK supports two main types of ads:
 - Contain `img_url`, or `html`, and `redirect` information
 - Ready to display directly to users
 
+##### Image-Based Display Ads
+Use `SponsoredDisplayView` for image-based display ads:
+```swift
+SponsoredDisplayView(placementId: 5, sessionId: sessionId)
+```
+
+##### HTML Display Ads
+
+Use `HTMLAdDisplayView` for HTML-based display ads:
+
+```swift
+import AdViews
+
+HTMLAdDisplayView(
+    ad: ad,
+    sessionId: sessionId,
+    configuration: .default
+)
+```
+
+**Configuration Options:**
+
+The SDK provides three preset configurations for different use cases:
+
+| Configuration | Click Behavior | Use Case |
+|--------------|---------------|----------|
+| `.default` | Opens URL in in-app browser | Standard clickable ads |
+| `.delegateHandled` | Resolves redirects, notifies delegate | Custom URL handling, deep linking |
+
+**Basic Usage:**
+
+```swift
+// Default configuration - opens in in-app browser
+HTMLAdDisplayView(
+    ad: htmlAd,
+    sessionId: "session-123",
+    configuration: .default
+)
+```
+
+**Custom Configuration:**
+
+```swift
+// Create custom configuration
+var config = HTMLAdConfiguration.default
+config.maxRedirects = 10
+config.isScrollEnabled = true
+
+HTMLAdDisplayView(
+    ad: htmlAd,
+    sessionId: "session-123",
+    configuration: config
+)
+```
+
+**Delegate-Controlled Behavior:**
+
+For advanced use cases like deep link handling or custom URL processing:
+
+```swift
+class AdClickHandler: HTMLAdClickDelegate {
+    // Called when user clicks the ad
+    func adWasClicked(_ ad: Ad, clickedURL: URL) {
+        print("Ad clicked: \(clickedURL)")
+    }
+    
+    // Called with final URL after redirect resolution
+    func handleAdClick(_ ad: Ad, destinationURL: URL) {
+        // Handle deep links
+        if destinationURL.scheme == "myapp" {
+            handleDeepLink(url: destinationURL)
+        } else {
+            // Open in Safari or custom browser
+            UIApplication.shared.open(destinationURL)
+        }
+    }
+    
+    // Optional: Track redirect chain for analytics
+    func adClickResolved(_ ad: Ad, result: Result<RedirectResolution, Error>) {
+        switch result {
+        case .success(let resolution):
+            print("Resolved \(resolution.redirectCount) redirects")
+            print("Final URL: \(resolution.finalURL)")
+        case .failure(let error):
+            print("Resolution failed: \(error)")
+        }
+    }
+}
+
+// Use with delegate
+let handler = AdClickHandler()
+HTMLAdDisplayView(
+    ad: htmlAd,
+    sessionId: "session-123",
+    configuration: .delegateHandled,
+    delegate: handler
+)
+```
+
+**Features:**
+
+- WebView-based HTML rendering with automatic size calculation
+- Responsive scaling to fit screen width
+- Configurable click handling (in-app browser or delegate-controlled)
+- Automatic redirect chain resolution for tracking URLs
+- Optional delegate callbacks for analytics and custom URL handling
 
 #### Sponsored Product Ads
 - Contain a `product_id` (SKU) for catalog integration
