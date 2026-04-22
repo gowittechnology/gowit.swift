@@ -198,7 +198,8 @@ public struct VideoAdView: View {
     }
 
     private var muteButton: some View {
-        Button(action: {
+        let hitAreaSize = configuration.muteButtonSize * (44.0 / 30.0)
+        return Button(action: {
             viewModel.toggleMute()
         }, label: {
             Image(viewModel.isMuted ? "unmute-icon" : "mute-icon", bundle: .module)
@@ -206,8 +207,10 @@ public struct VideoAdView: View {
                 .renderingMode(.original)
                 .aspectRatio(contentMode: .fit)
                 .frame(width: configuration.muteButtonSize, height: configuration.muteButtonSize)
+                .frame(width: hitAreaSize, height: hitAreaSize)
         })
         .buttonStyle(PlainButtonStyle())
+        .contentShape(Rectangle())
     }
     private func setupCallbacks() {
         viewModel.onAdLoaded = onAdLoaded
