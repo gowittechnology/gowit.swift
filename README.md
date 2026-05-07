@@ -726,8 +726,8 @@ do {
 The main SDK interface providing ad request and event reporting functionality.
 
 **Configuration Methods:**
-- `configure(apiKey:hostname:marketplaceId:)`
-- `configure(apiKey:hostname:marketplaceId:autoImpressionEnabled:)`
+- `configure(hostname:marketplaceId:)`
+- `configure(hostname:marketplaceId:autoImpressionEnabled:)`
 
 **Ad Request Methods:**
 - `getAds(placementId:pageNumber:sessionId:) -> AdResponse`
