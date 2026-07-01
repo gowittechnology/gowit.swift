@@ -80,7 +80,8 @@ class EventManager {
 
         urlComponents.queryItems = [
             URLQueryItem(name: "type", value: type.rawValue),
-            URLQueryItem(name: "ad_id", value: adId)
+            URLQueryItem(name: "ad_id", value: adId),
+            URLQueryItem(name: "no_redirect", value: "1")
         ]
 
         guard let url = urlComponents.url else {
