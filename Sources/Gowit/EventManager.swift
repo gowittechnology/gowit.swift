@@ -67,14 +67,14 @@ class EventManager {
 
     // MARK: - Private Methods
 
-    /// Send impression/click events via GET /sdk/events
+    /// Send impression/click events via GET /server/sdk/events
     private func sendSdkEvent(type: EventType, adId: String, sessionId: String) async throws {
         guard let baseUrl = baseUrl else {
             throw EventManagerError.configurationError(message: "Base URL not configured. Call configure() first.")
         }
 
-        // Build URL with query parameters for /sdk/events endpoint
-        guard var urlComponents = URLComponents(url: baseUrl.appendingPathComponent("sdk/events"), resolvingAgainstBaseURL: false) else {
+        // Build URL with query parameters for /server/sdk/events endpoint
+        guard var urlComponents = URLComponents(url: baseUrl.appendingPathComponent("server/sdk/events"), resolvingAgainstBaseURL: false) else {
             throw EventManagerError.configurationError(message: "Invalid base URL configuration.")
         }
 
@@ -95,13 +95,13 @@ class EventManager {
         }
     }
 
-    /// Send sale events via POST /sdk/sale_events
+    /// Send sale events via POST /server/sdk/sale_events
     private func sendSdkSaleEvent(_ saleEventRequest: SdkSaleEventRequest) async throws {
         guard let baseUrl = baseUrl else {
             throw EventManagerError.configurationError(message: "Base URL not configured. Call configure() first.")
         }
 
-        let url = baseUrl.appendingPathComponent("sdk/sale_events")
+        let url = baseUrl.appendingPathComponent("server/sdk/sale_events")
 
         // Serialize the sale event request
         guard let requestData = try? JSONEncoder().encode(saleEventRequest) else {
