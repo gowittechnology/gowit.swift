@@ -1,0 +1,34 @@
+{
+  "response_id": "fixture-response-0001",
+  "placements": [
+    {
+      "placement_id": 101,
+      "placement_identifier": "home_top",
+      "ads": [
+        {
+          "ad_id": "fixture-ad-0001",
+          "creative_id": 4242,
+          "advertiser_id": "fixture-advertiser-0001",
+          "img_url": "https://example.invalid/creative.png",
+          "size": "320x100",
+          "position": 1,
+          "redirect": {
+            "url": "https://example.invalid/product/SKU-77",
+            "type": "product"
+          },
+          "products": [
+            {
+              "name": "Stainless Steel Kettle 1.7L",
+              "sku": "SKU-77",
+              "image_url": "https://example.invalid/product/SKU-77.png",
+              "rating": 4.6,
+              "price": 749.9,
+              "stock_count": 12,
+              "advertiser_id": "fixture-advertiser-0001"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
