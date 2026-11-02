@@ -68,12 +68,17 @@ public struct AdRequest: Codable {
     }
 }
 
-public struct Customer: Codable {
+public struct Customer: Codable, Equatable {
     public let customerId: String?
     public let gender: String?
     public let age: Int?
     public let city: String?
     public let deviceType: String?
+    public let id: String?
+    public let environmentType: String?
+    public let ip: String?
+    public let segments: [String]?
+    public let userAgent: String?
 
     public init(
         customerId: String? = nil,
@@ -81,12 +86,22 @@ public struct Customer: Codable {
         age: Int? = nil,
         city: String? = nil,
         deviceType: String? = nil,
+        id: String? = nil,
+        environmentType: String? = nil,
+        ip: String? = nil,
+        segments: [String]? = nil,
+        userAgent: String? = nil
     ) {
         self.customerId = customerId
         self.gender = gender
         self.age = age
         self.city = city
         self.deviceType = deviceType
+        self.id = id
+        self.environmentType = environmentType
+        self.ip = ip
+        self.segments = segments
+        self.userAgent = userAgent
     }
 
     enum CodingKeys: String, CodingKey {
@@ -95,21 +110,39 @@ public struct Customer: Codable {
         case age
         case city
         case deviceType = "device_type"
+        case id
+        case environmentType = "environment_type"
+        case ip
+        case segments
+        case userAgent = "user_agent"
     }
 }
 
-public struct Product: Codable {
+public struct Product: Codable, Equatable {
     public let productId: String?
     public let category: String?
+    /// All categories of the product, for products that belong to several categories.
+    public let categories: [String]?
+    /// ID structures matching `categories` by index, e.g. "1>23>456".
+    public let categoryIdStructures: [String]?
 
-    public init(productId: String? = nil, category: String? = nil) {
+    public init(
+        productId: String? = nil,
+        category: String? = nil,
+        categories: [String]? = nil,
+        categoryIdStructures: [String]? = nil
+    ) {
         self.productId = productId
         self.category = category
+        self.categories = categories
+        self.categoryIdStructures = categoryIdStructures
     }
 
     enum CodingKeys: String, CodingKey {
-        case productId = "product_id"
+        case productId = "id"
         case category
+        case categories
+        case categoryIdStructures = "category_id_structures"
     }
 }
 

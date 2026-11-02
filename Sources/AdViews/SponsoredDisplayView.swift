@@ -15,12 +15,59 @@ public struct SponsoredDisplayView: View {
     @State private var ads: [Ad] = []
     @State private var isLoading = false
     @State private var error: String?
+    @State private var resolvedSessionId: String?
 
-    private let placementId: Int
-    private let sessionId: String
+    private let placement: PlacementRequest
+    private let context: AdContext?
+    private let sessionId: String?
     private let isClickable: Bool
+    private let onAdClick: ((Ad, URL?) -> Bool)?
     private let onStateChange: ((SponsoredDisplayState) -> Void)?
     @Binding private var sponsoredDisplayState: SponsoredDisplayState?
+
+    /// Initialize SponsoredDisplayView for a placement with completion callback.
+    /// - Parameters:
+    ///   - placement: Placement to fill, with optional placement filters and max ads.
+    ///   - context: Request context (customer, language, location, region, page context...).
+    ///     Merged over `Gowit.shared.defaultContext`; the customer is merged field by field.
+    ///   - sessionId: Session used for the request and the view's events. Falls back to
+    ///     `context`, then the default context, then a generated ID.
+    ///   - onAdClick: Called on tap with the ad and its destination. Return `true` when the
+    ///     app handled navigation itself; `false` lets the SDK open the destination URL.
+    public init(
+        placement: PlacementRequest,
+        context: AdContext? = nil,
+        sessionId: String? = nil,
+        isClickable: Bool = true,
+        onAdClick: ((Ad, URL?) -> Bool)? = nil,
+        onStateChange: ((SponsoredDisplayState) -> Void)? = nil
+    ) {
+        self.placement = placement
+        self.context = context
+        self.sessionId = sessionId
+        self.isClickable = isClickable
+        self.onAdClick = onAdClick
+        self.onStateChange = onStateChange
+        self._sponsoredDisplayState = .constant(nil)
+    }
+
+    /// Initialize SponsoredDisplayView for a placement with state binding.
+    public init(
+        placement: PlacementRequest,
+        context: AdContext? = nil,
+        sessionId: String? = nil,
+        isClickable: Bool = true,
+        onAdClick: ((Ad, URL?) -> Bool)? = nil,
+        state: Binding<SponsoredDisplayState?>
+    ) {
+        self.placement = placement
+        self.context = context
+        self.sessionId = sessionId
+        self.isClickable = isClickable
+        self.onAdClick = onAdClick
+        self.onStateChange = nil
+        self._sponsoredDisplayState = state
+    }
 
     /// Initialize SponsoredDisplayView with completion callback
     public init(
@@ -29,11 +76,12 @@ public struct SponsoredDisplayView: View {
         isClickable: Bool = true,
         onStateChange: ((SponsoredDisplayState) -> Void)? = nil
     ) {
-        self.placementId = placementId
-        self.sessionId = sessionId
-        self.isClickable = isClickable
-        self.onStateChange = onStateChange
-        self._sponsoredDisplayState = .constant(nil)
+        self.init(
+            placement: PlacementRequest(placementId: placementId),
+            sessionId: sessionId,
+            isClickable: isClickable,
+            onStateChange: onStateChange
+        )
     }
 
     /// Initialize SponsoredDisplayView with state binding
@@ -43,11 +91,12 @@ public struct SponsoredDisplayView: View {
         isClickable: Bool = true,
         state: Binding<SponsoredDisplayState?>
     ) {
-        self.placementId = placementId
-        self.sessionId = sessionId
-        self.isClickable = isClickable
-        self.onStateChange = nil
-        self._sponsoredDisplayState = state
+        self.init(
+            placement: PlacementRequest(placementId: placementId),
+            sessionId: sessionId,
+            isClickable: isClickable,
+            state: state
+        )
     }
 
     public var body: some View {
@@ -64,7 +113,12 @@ public struct SponsoredDisplayView: View {
             } else {
                 // Display ads - just the image, no padding/margins
                 ForEach(ads, id: \.adId) { ad in
-                    AdImageView(ad: ad, sessionId: sessionId, isClickable: isClickable)
+                    AdImageView(
+                        ad: ad,
+                        sessionId: resolvedSessionId ?? "",
+                        isClickable: isClickable,
+                        onAdClick: onAdClick
+                    )
                 }
             }
         }
@@ -81,18 +135,24 @@ public struct SponsoredDisplayView: View {
         error = nil
         notifyStateChange(.loading)
 
+        let session = sessionId
+            ?? context?.sessionId
+            ?? Gowit.shared.defaultContext?.sessionId
+            ?? UUID().uuidString
+        resolvedSessionId = session
+
         // Use detached task to ensure it doesn't block UI
-        Task.detached { [placementId, sessionId] in
+        Task.detached { [placement, context] in
             do {
-                // Use the single placement convenience method
                 let response = try await Gowit.shared.getAds(
-                    placementId: placementId,
-                    sessionId: sessionId,
+                    placement: placement,
+                    context: context,
+                    sessionId: session
                 )
 
                 await MainActor.run {
                     // Get ads specifically for this placement
-                    let fetchedAds = response.getAds(for: placementId) ?? []
+                    let fetchedAds = response.getAds(for: placement.placementId) ?? []
                     self.ads = fetchedAds
                     self.isLoading = false
 
@@ -131,12 +191,14 @@ public struct AdImageView: View {
     let ad: Ad
     let sessionId: String
     let isClickable: Bool
+    let onAdClick: ((Ad, URL?) -> Bool)?
     @State private var hasReportedImpression = false
 
-    public init(ad: Ad, sessionId: String, isClickable: Bool = true) {
+    public init(ad: Ad, sessionId: String, isClickable: Bool = true, onAdClick: ((Ad, URL?) -> Bool)? = nil) {
         self.ad = ad
         self.sessionId = sessionId
         self.isClickable = isClickable
+        self.onAdClick = onAdClick
     }
 
     public var body: some View {
@@ -171,10 +233,7 @@ public struct AdImageView: View {
                 }
                 .onTapGesture {
                     if isClickable {
-                        reportClick()
-                        if let redirectUrl = ad.redirect?.url, let url = URL(string: redirectUrl) {
-                            UIApplication.shared.open(url)
-                        }
+                        handleTap()
                     }
                 }
             } else {
@@ -204,6 +263,17 @@ public struct AdImageView: View {
             } catch {
                 print("Failed to send impression event: \(error)")
             }
+        }
+    }
+
+    private func handleTap() {
+        reportClick()
+        let destination = ad.redirect.flatMap { URL(string: $0.url) }
+        if let onAdClick = onAdClick, onAdClick(ad, destination) {
+            return
+        }
+        if let url = destination {
+            UIApplication.shared.open(url)
         }
     }
 
