@@ -22,7 +22,7 @@ Add the following dependency to your `Package.swift` file:
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/gowittechnology/gowit-swift.git", from: "1.1.0")
+    .package(url: "https://github.com/gowittechnology/gowit.swift.git", from: "1.1.0")
 ]
 ```
 
@@ -30,7 +30,7 @@ dependencies: [
 
 1. Open your Xcode project
 2. Go to File > Add Package Dependencies
-3. Enter the repository URL: `https://github.com/gowittechnology/gowit-swift.git`
+3. Enter the repository URL: `https://github.com/gowittechnology/gowit.swift.git`
 4. Select the version and add to your target
 
 ## Quick Start
@@ -872,7 +872,7 @@ Conditional rendering component that only shows when ads are available.
 ## Support
 
 For technical support and documentation:
-- GitHub Issues: [Report Issues](https://github.com/gowittechnology/gowit-swift/issues)
+- GitHub Issues: [Report Issues](https://github.com/gowittechnology/gowit.swift/issues)
 - Documentation: [Official Documentation](https://docs.gowit.com)
 - Contact: support@gowit.com
 

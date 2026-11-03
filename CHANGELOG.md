@@ -62,7 +62,7 @@ and this project follows [Semantic Versioning](https://semver.org/).
 - Initial release: configuration, ad requests with placements and filters, SwiftUI
   `SponsoredDisplayView` and `SponsoredProductView`, impression, click and sale events.
 
-[1.1.0]: https://github.com/gowittechnology/gowit-swift/compare/v1.0.4...v1.1.0
-[1.0.4]: https://github.com/gowittechnology/gowit-swift/compare/v1.0.3...v1.0.4
-[1.0.3]: https://github.com/gowittechnology/gowit-swift/compare/v1.0.2...v1.0.3
-[1.0.2]: https://github.com/gowittechnology/gowit-swift/releases/tag/v1.0.2
+[1.1.0]: https://github.com/gowittechnology/gowit.swift/compare/v1.0.4...v1.1.0
+[1.0.4]: https://github.com/gowittechnology/gowit.swift/compare/v1.0.3...v1.0.4
+[1.0.3]: https://github.com/gowittechnology/gowit.swift/compare/v1.0.2...v1.0.3
+[1.0.2]: https://github.com/gowittechnology/gowit.swift/releases/tag/v1.0.2
