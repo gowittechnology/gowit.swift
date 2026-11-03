@@ -3,10 +3,19 @@ import Foundation
 public struct ProductRequest {
     public let productId: String
     public let category: String?
+    public let categories: [String]?
+    public let categoryIdStructures: [String]?
 
-    public init(productId: String, category: String? = nil) {
+    public init(
+        productId: String,
+        category: String? = nil,
+        categories: [String]? = nil,
+        categoryIdStructures: [String]? = nil
+    ) {
         self.productId = productId
         self.category = category
+        self.categories = categories
+        self.categoryIdStructures = categoryIdStructures
     }
 }
 
@@ -107,5 +116,55 @@ public struct AdRequestBuilder {
         var builder = self
         builder.language = language
         return builder
+    }
+
+    /// Applies an `AdContext`; its non-nil values replace the builder's values.
+    /// The customer is merged field by field.
+    public func with(context: AdContext) -> AdRequestBuilder {
+        var builder = self
+        builder.pageNumber = context.pageNumber ?? pageNumber
+        builder.sessionId = context.sessionId ?? sessionId
+        builder.customer = Customer.merge(context.customer, over: customer)
+        builder.products = context.products.map { products in
+            products.map {
+                ProductRequest(
+                    productId: $0.productId ?? "",
+                    category: $0.category,
+                    categories: $0.categories,
+                    categoryIdStructures: $0.categoryIdStructures
+                )
+            }
+        } ?? products
+        builder.search = context.search ?? search
+        builder.category = context.category ?? category
+        builder.categoryId = context.categoryId ?? categoryId
+        builder.filters = context.filters ?? filters
+        builder.locationId = context.locationId ?? locationId
+        builder.regionId = context.regionId ?? regionId
+        builder.language = context.language ?? language
+        return builder
+    }
+
+    func toAdContext() -> AdContext {
+        AdContext(
+            customer: customer,
+            language: language,
+            locationId: locationId,
+            regionId: regionId,
+            search: search,
+            category: category,
+            categoryId: categoryId,
+            products: products?.map {
+                Product(
+                    productId: $0.productId,
+                    category: $0.category,
+                    categories: $0.categories,
+                    categoryIdStructures: $0.categoryIdStructures
+                )
+            },
+            filters: filters,
+            pageNumber: pageNumber,
+            sessionId: sessionId
+        )
     }
 }

@@ -7,6 +7,7 @@ Swift SDK for integrating Gowit's advertising platform into iOS applications. Th
 - [Installation](#installation)
 - [Quick Start](#quick-start)
 - [Ad Requests](#ad-requests)
+- [Request Context](#request-context)
 - [Event Reporting](#event-reporting)
 - [SwiftUI Components](#swiftui-components)
 - [Error Handling](#error-handling)
@@ -21,7 +22,7 @@ Add the following dependency to your `Package.swift` file:
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/gowittechnology/gowit-swift.git", from: "1.0.4")
+    .package(url: "https://github.com/gowittechnology/gowit.swift.git", from: "1.1.0")
 ]
 ```
 
@@ -29,7 +30,7 @@ dependencies: [
 
 1. Open your Xcode project
 2. Go to File > Add Package Dependencies
-3. Enter the repository URL: `https://github.com/gowittechnology/gowit-swift.git`
+3. Enter the repository URL: `https://github.com/gowittechnology/gowit.swift.git`
 4. Select the version and add to your target
 
 ## Quick Start
@@ -202,6 +203,30 @@ let placements = [
     )
 ]
 ```
+
+## Request Context
+
+`AdContext` carries everything a request sends besides the placement: `customer`, `language`,
+`locationId`, `regionId`, `search`, `category`, `categoryId`, `products`, `filters`, `pageNumber`
+and `sessionId`.
+
+Set a default once (e.g. after login or a language change); it applies to every request and every
+`SponsoredDisplayView`:
+
+```swift
+Gowit.shared.defaultContext = AdContext(
+    customer: Customer(customerId: "42", city: "Riyadh", deviceType: "MOBILE"),
+    language: "AR",
+    regionId: "1",
+    sessionId: session.id
+)
+```
+
+Merge rules: values of a more specific context win, `customer` is merged field by field, and
+arrays (`products`, `filters`, `segments`) are replaced.
+
+The same context works with requests: `Gowit.shared.getAds(placement:context:)` or
+`AdRequestBuilder(...).with(context:)`.
 
 ## Event Reporting
 
@@ -626,9 +651,21 @@ The `SponsoredDisplayView` component provides automatic ad display and event rep
 ```swift
 import AdViews
 
-SponsoredDisplayView(placementId: 5, sessionId: "user-session-123")
-    .frame(height: 200)
+SponsoredDisplayView(
+    placement: PlacementRequest(placementId: 8, maxAds: 1),
+    context: AdContext(category: "Burgers"), // merged over Gowit.shared.defaultContext
+    onAdClick: { ad, destination in
+        router.openAdDestination(destination) // return true: the app handled navigation
+        return true
+    },
+    state: $bannerState
+)
 ```
+
+- `sessionId` resolves as: init argument → `context.sessionId` → default context → generated.
+- `onAdClick` returns `true` when the app handled navigation; `false` (or no handler) opens the
+  destination with `UIApplication.shared.open`. The click event is recorded either way.
+- `SponsoredDisplayView(placementId:sessionId:)` still works and applies the default context.
 
 ### SponsoredProductView
 
@@ -835,7 +872,7 @@ Conditional rendering component that only shows when ads are available.
 ## Support
 
 For technical support and documentation:
-- GitHub Issues: [Report Issues](https://github.com/gowittechnology/gowit-swift/issues)
+- GitHub Issues: [Report Issues](https://github.com/gowittechnology/gowit.swift/issues)
 - Documentation: [Official Documentation](https://docs.gowit.com)
 - Contact: support@gowit.com
 

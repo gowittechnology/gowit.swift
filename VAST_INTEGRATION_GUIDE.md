@@ -28,7 +28,7 @@ Add the Gowit Swift SDK to your project:
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/gowittechnology/gowit-swift.git", from: "1.0.2")
+    .package(url: "https://github.com/gowittechnology/gowit.swift.git", from: "1.0.2")
 ]
 ```
 
@@ -36,7 +36,7 @@ dependencies: [
 
 1. Open your Xcode project
 2. Go to **File > Add Package Dependencies**
-3. Enter the repository URL: `https://github.com/gowittechnology/gowit-swift.git`
+3. Enter the repository URL: `https://github.com/gowittechnology/gowit.swift.git`
 4. Select the version and add to your target
 
 ## Quick Start
@@ -646,6 +646,6 @@ The SDK automatically fires VAST tracking events:
 
 ## Support
 
-- GitHub Issues: [Report Issues](https://github.com/gowittechnology/gowit-swift/issues)
+- GitHub Issues: [Report Issues](https://github.com/gowittechnology/gowit.swift/issues)
 - Documentation: [Official Documentation](https://docs.gowit.com)
 - Contact: support@gowit.com

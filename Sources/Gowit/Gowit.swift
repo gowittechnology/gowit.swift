@@ -48,7 +48,20 @@ public class Gowit: GowitProtocol {
 
     /// Request ads for multiple placements
     public func getAds(placements: [PlacementRequest], pageNumber: Int? = nil, sessionId: String? = nil) async throws -> AdResponse {
-        return try await AdManager.shared.getAds(placements: placements, pageNumber: pageNumber, sessionId: sessionId)
+        guard !placements.isEmpty else {
+            throw AdError.invalidPlacements
+        }
+        let context = AdContext(pageNumber: pageNumber ?? 0, sessionId: sessionId).merged(over: defaultContext)
+        return try await AdManager.shared.getAds(request: buildRequest(placements: placements, context: context))
+    }
+
+    /// Request ads for a single placement with an optional `AdContext`.
+    /// The context is merged over `defaultContext`; an explicit `sessionId` wins over both.
+    public func getAds(placement: PlacementRequest, context: AdContext? = nil, sessionId: String? = nil) async throws -> AdResponse {
+        let merged = AdContext(sessionId: sessionId)
+            .merged(over: context ?? AdContext())
+            .merged(over: defaultContext)
+        return try await AdManager.shared.getAds(request: buildRequest(placements: [placement], context: merged))
     }
 
     /// Request ads for a single placement (convenience method)
@@ -59,29 +72,49 @@ public class Gowit: GowitProtocol {
 
     /// Request ads using the builder pattern for cleaner API
     public func getAds(_ builder: AdRequestBuilder) async throws -> AdResponse {
-        // Convert ProductRequest to Product if needed
-        let products: [Product]? = builder.products?.map { productReq in
-            Product(productId: productReq.productId, category: productReq.category)
-        }
-
-        // Create AdRequest with all builder parameters
-        let request = AdRequest(
-            marketplaceId: self.marketplaceId,
-            placements: builder.placements,
-            sessionId: builder.sessionId ?? UUID().uuidString,
-            customer: builder.customer,
-            products: products,
-            search: builder.search,
-            category: builder.category,
-            categoryId: builder.categoryId,
-            maxAds: builder.maxAds,
-            filters: builder.filters,
-            pageNumber: builder.pageNumber,
-            locationId: builder.locationId,
-            regionId: builder.regionId,
-        )
-
+        let context = builder.toAdContext().merged(over: defaultContext)
+        let request = buildRequest(placements: builder.placements, context: context, maxAds: builder.maxAds)
         return try await AdManager.shared.getAds(request: request)
+    }
+
+    // MARK: - Default Context
+
+    private let contextLock = NSLock()
+    private var storedDefaultContext: AdContext?
+
+    /// App-wide context applied to every ad request and sponsored display view,
+    /// e.g. set after login or a language change. Per-request values override it;
+    /// the customer is merged field by field. Set to `nil` to clear.
+    public var defaultContext: AdContext? {
+        get {
+            contextLock.lock()
+            defer { contextLock.unlock() }
+            return storedDefaultContext
+        }
+        set {
+            contextLock.lock()
+            storedDefaultContext = newValue
+            contextLock.unlock()
+        }
+    }
+
+    func buildRequest(placements: [PlacementRequest], context: AdContext, maxAds: Int? = nil) -> AdRequest {
+        AdRequest(
+            marketplaceId: marketplaceId,
+            placements: placements,
+            sessionId: context.sessionId ?? UUID().uuidString,
+            customer: context.customer,
+            products: context.products,
+            search: context.search,
+            category: context.category,
+            categoryId: context.categoryId,
+            maxAds: maxAds,
+            filters: context.filters,
+            pageNumber: context.pageNumber,
+            locationId: context.locationId,
+            regionId: context.regionId,
+            language: context.language
+        )
     }
 
     // MARK: - Event Reporting Methods
