@@ -1,0 +1,77 @@
+name: Build and Test
+
+# The linter runs on Linux and never compiles anything, so until this workflow
+# existed the package's test files were not built by CI at all - and one of them did
+# not compile. An iOS build needs a macOS runner with Xcode, so this job is the one
+# place in this repository that runs on a GitHub-hosted macOS image.
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: build-test-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-test:
+    name: Build and test on the iOS simulator
+    runs-on: macos-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Toolchain
+        run: |
+          xcodebuild -version
+          swift --version
+
+      # The destination is resolved rather than hard-coded: the runner image's Xcode
+      # and its installed simulators both move, and a pinned device name turns a
+      # routine image update into a red build with a misleading reason. "iPhone"
+      # appears only under an iOS runtime, so the first match is an iOS simulator.
+      - name: Resolve a simulator destination
+        id: sim
+        run: |
+          set -euo pipefail
+          line=$(xcrun simctl list devices available | grep -m1 "iPhone" || true)
+          if [ -z "$line" ]; then
+            echo "No available iPhone simulator on this runner." >&2
+            xcrun simctl list devices available >&2
+            exit 1
+          fi
+          udid=$(printf '%s\n' "$line" | sed -E 's/.*\(([0-9A-Fa-f-]{36})\).*/\1/')
+          echo "Using:$line"
+          echo "udid=$udid" >> "$GITHUB_OUTPUT"
+
+      - name: Build the package
+        run: |
+          set -o pipefail
+          xcodebuild build \
+            -scheme Gowit-Package \
+            -destination "platform=iOS Simulator,id=${{ steps.sim.outputs.udid }}" \
+            -derivedDataPath .ci-build \
+            | tail -20
+
+      - name: Run the tests
+        run: |
+          set -o pipefail
+          xcodebuild test \
+            -scheme Gowit-Package \
+            -destination "platform=iOS Simulator,id=${{ steps.sim.outputs.udid }}" \
+            -derivedDataPath .ci-build \
+            | grep -E "Test Suite |Executed [0-9]+ tests|error:|\*\* TEST"
+
+      # The package compiling is not proof that a host application can consume it:
+      # the sample app is what exercises the product boundary and the renderer's
+      # lifecycle inside a real app process.
+      - name: Build the sample host application
+        run: |
+          set -o pipefail
+          xcodebuild build \
+            -project Examples/GowitSampleApp/GowitSampleApp.xcodeproj \
+            -scheme GowitSampleApp \
+            -destination "platform=iOS Simulator,id=${{ steps.sim.outputs.udid }}" \
+            -derivedDataPath .ci-build-sample \
+            | tail -20
