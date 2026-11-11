@@ -28,7 +28,7 @@ Add the Gowit Swift SDK to your project:
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/gowittechnology/gowit.swift.git", from: "1.0.2")
+    .package(url: "https://github.com/gowittechnology/gowit.swift.git", from: "1.2.0")
 ]
 ```
 
@@ -248,6 +248,7 @@ VideoAdConfiguration.withLoadingText("Loading...")
 | `onAdClicked` | `URL` | User tapped the video |
 | `onError` | `VASTError` | An error occurred |
 | `onStateChanged` | `VideoAdState` | State changed |
+| `onMuteChanged` | `Bool` (`true` = muted) | User tapped the mute button |
 
 ### State Tracking
 
@@ -281,6 +282,39 @@ VideoAdView(
     }
 )
 ```
+
+### Mute Changes and Background Audio
+
+`onMuteChanged` is called each time the user taps the mute button. The value is the new state:
+`true` when the video is muted, `false` when its sound is on. The SDK does not call it for the
+initial state; that state is `isMutedByDefault` from your configuration.
+
+The SDK does not change the app's `AVAudioSession`. Use the callback to pause other apps'
+audio (for example, music) while the ad plays with sound, and to resume it when the ad is muted again:
+
+```swift
+import AVFoundation
+
+VideoAdView(
+    vastURL: vastURL,
+    configuration: .default,
+    onMuteChanged: { isMuted in
+        let session = AVAudioSession.sharedInstance()
+        if isMuted {
+            // Let other apps' audio resume
+            try? session.setActive(false, options: .notifyOthersOnDeactivation)
+            try? session.setCategory(.ambient, mode: .default, options: [.mixWithOthers])
+        } else {
+            // Interrupt other apps' audio while the ad plays with sound
+            try? session.setCategory(.playback, mode: .moviePlayback, options: [])
+            try? session.setActive(true)
+        }
+    }
+)
+```
+
+Adapt the categories to the audio setup your app already uses, and test the flow on a real device
+with music playing: the Simulator does not show how other apps react.
 
 ## Product Extensions
 

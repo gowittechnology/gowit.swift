@@ -4,6 +4,13 @@ All notable changes to the Gowit Swift SDK are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project follows [Semantic Versioning](https://semver.org/).
 
+## [1.2.0] - 2026-11-10
+
+### Added
+- `VideoAdView(onMuteChanged:)`: called with the new mute state (`true` = muted) each time the user
+  taps the mute button, so the host app can pause or resume other audio. The parameter is optional;
+  existing integrations compile without changes.
+
 ## [1.1.0] - 2026-11-03
 
 ### Added
