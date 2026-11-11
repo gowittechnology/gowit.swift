@@ -45,4 +45,23 @@ final class VideoAdMuteCallbackTests: XCTestCase {
         XCTAssertEqual(callCount, 0)
         XCTAssertTrue(viewModel.isMuted)
     }
+
+    func testUnlabeledTrailingClosureStillBindsToOnStateChanged() {
+        let view = VideoAdView(vastURL: vastURL) { _ in }
+
+        let callbacks = Dictionary(
+            uniqueKeysWithValues: Mirror(reflecting: view).children.compactMap { child in
+                child.label.map { ($0, child.value) }
+            }
+        )
+
+        XCTAssertFalse(isNil(callbacks["onStateChanged"]))
+        XCTAssertTrue(isNil(callbacks["onMuteChanged"]))
+    }
+
+    private func isNil(_ value: Any?) -> Bool {
+        guard let value else { return true }
+        let mirror = Mirror(reflecting: value)
+        return mirror.displayStyle == .optional && mirror.children.isEmpty
+    }
 }

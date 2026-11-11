@@ -290,27 +290,39 @@ VideoAdView(
 initial state; that state is `isMutedByDefault` from your configuration.
 
 The SDK does not change the app's `AVAudioSession`. Use the callback to pause other apps'
-audio (for example, music) while the ad plays with sound, and to resume it when the ad is muted again:
+audio (for example, music) while the ad plays with sound, and to resume it when the ad is muted again.
+
+`onMuteChanged` is called only for user taps. If the ad completes, fails, or leaves the screen while
+its sound is on, there is no mute tap. Release the audio session on those events too, or other apps'
+audio stays paused:
 
 ```swift
 import AVFoundation
 
+func takeAudioFocus() {
+    // Interrupt other apps' audio while the ad plays with sound
+    let session = AVAudioSession.sharedInstance()
+    try? session.setCategory(.playback, mode: .moviePlayback, options: [])
+    try? session.setActive(true)
+}
+
+func releaseAudioFocus() {
+    // Let other apps' audio resume
+    let session = AVAudioSession.sharedInstance()
+    try? session.setActive(false, options: .notifyOthersOnDeactivation)
+    try? session.setCategory(.ambient, mode: .default, options: [.mixWithOthers])
+}
+
 VideoAdView(
     vastURL: vastURL,
     configuration: .default,
+    onAdCompleted: { releaseAudioFocus() },
+    onError: { _ in releaseAudioFocus() },
     onMuteChanged: { isMuted in
-        let session = AVAudioSession.sharedInstance()
-        if isMuted {
-            // Let other apps' audio resume
-            try? session.setActive(false, options: .notifyOthersOnDeactivation)
-            try? session.setCategory(.ambient, mode: .default, options: [.mixWithOthers])
-        } else {
-            // Interrupt other apps' audio while the ad plays with sound
-            try? session.setCategory(.playback, mode: .moviePlayback, options: [])
-            try? session.setActive(true)
-        }
+        isMuted ? releaseAudioFocus() : takeAudioFocus()
     }
 )
+.onDisappear { releaseAudioFocus() }
 ```
 
 Adapt the categories to the audio setup your app already uses, and test the flow on a real device
@@ -613,6 +625,7 @@ public struct VideoAdView: View {
         onAdCompleted: (() -> Void)? = nil,
         onAdClicked: ((URL) -> Void)? = nil,
         onError: ((VASTError) -> Void)? = nil,
+        onMuteChanged: ((Bool) -> Void)? = nil,
         onStateChanged: ((VideoAdState) -> Void)? = nil
     )
 }

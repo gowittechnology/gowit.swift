@@ -23,8 +23,9 @@ public struct VideoAdView: View {
         onAdCompleted: (() -> Void)? = nil,
         onAdClicked: ((URL) -> Void)? = nil,
         onError: ((VASTError) -> Void)? = nil,
-        onStateChanged: ((VideoAdState) -> Void)? = nil,
-        onMuteChanged: ((Bool) -> Void)? = nil
+        onMuteChanged: ((Bool) -> Void)? = nil,
+        // Keep last: an unlabeled trailing closure binds here
+        onStateChanged: ((VideoAdState) -> Void)? = nil
     ) {
         self.vastURL = vastURL
         self.configuration = configuration
