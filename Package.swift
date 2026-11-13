@@ -25,12 +25,16 @@ let package = Package(
         // Targets can depend on other targets in this package and products from dependencies.
         .target(
             name: "Gowit",
-            dependencies: []
+            dependencies: [],
+            resources: [.copy("PrivacyInfo.xcprivacy")]
         ),
         .target(
             name: "AdViews",
             dependencies: ["Gowit"],
-            resources: [.process("Resources")]
+            resources: [
+                .process("Resources"),
+                .copy("PrivacyInfo.xcprivacy")
+            ]
         ),
         .testTarget(
             name: "gowit.swiftTests",

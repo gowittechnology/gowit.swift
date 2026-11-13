@@ -4,6 +4,18 @@ All notable changes to the Gowit Swift SDK are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project follows [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+- Privacy manifests (`PrivacyInfo.xcprivacy`) for both modules. Neither module tracks or uses
+  tracking domains.
+  - `Gowit` declares the data the SDK sends when the app passes it: user ID, search history,
+    product interaction, purchase history, advertising data, approximate location (city/region)
+    and other data (age, gender, segments). All of it is linked to the user and used for
+    third-party advertising and analytics.
+  - `AdViews` declares File Timestamp access (reason `C617.1`): the video ad cache reads the
+    modification dates of its own files in the app's Caches folder to remove old files.
+
 ## [1.1.0] - 2026-11-03
 
 ### Added
