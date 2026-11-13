@@ -77,6 +77,21 @@ Gowit.shared.configure(
 )
 ```
 
+### Ad Request Timeout
+
+Each ad request has a total time limit, measured from sending the request to receiving the full
+response. The default is 600 ms (`Gowit.defaultAdRequestTimeout`). When the limit is reached, the
+request is cancelled and `getAds` throws `AdError.http(error: .timeout)`. `SponsoredDisplayView`
+reports `.error` and shows nothing, so a late response never appears on screen. The SDK does not
+retry failed or timed-out requests.
+
+```swift
+Gowit.shared.adRequestTimeout = 0.8   // seconds; set to 0 or less to turn the limit off
+```
+
+The limit applies to ad requests only. Event requests (impression, click, sale) use a
+30-second timeout.
+
 ### Request Ads
 
 ```swift

@@ -24,12 +24,10 @@ final class AdManagerTests: XCTestCase {
             marketplaceId: "TEST_MARKETPLACE_UUID"
         ))
 
-        // Test timeout interval is accessible and has default value
-        XCTAssertEqual(adManager.timeoutInterval, 60)
-
         // Test that we can change timeout interval
-        adManager.timeoutInterval = 120
-        XCTAssertEqual(adManager.timeoutInterval, 120)
+        adManager.timeoutInterval = 1.2
+        XCTAssertEqual(adManager.timeoutInterval, 1.2)
+        adManager.timeoutInterval = AdManager.defaultTimeoutInterval
     }
 
     func testAdManagerSingletonBehavior() {
@@ -192,19 +190,68 @@ final class AdManagerTests: XCTestCase {
 
     // MARK: - Timeout Configuration Tests
 
-    func testTimeoutConfiguration() {
-        // Test default timeout
-        XCTAssertEqual(adManager.timeoutInterval, 120)
+    func testDefaultAdRequestTimeoutIs600Milliseconds() {
+        XCTAssertEqual(Gowit.defaultAdRequestTimeout, 0.6)
+        XCTAssertEqual(AdManager.defaultTimeoutInterval, 0.6)
+    }
 
-        // Test setting custom timeout
-        adManager.timeoutInterval = 30
-        XCTAssertEqual(adManager.timeoutInterval, 30)
+    func testAdRequestTimeoutIsConfigurableThroughGowit() {
+        let original = Gowit.shared.adRequestTimeout
+        defer { Gowit.shared.adRequestTimeout = original }
 
-        // Test setting zero timeout (edge case)
+        Gowit.shared.adRequestTimeout = 1.5
+        XCTAssertEqual(Gowit.shared.adRequestTimeout, 1.5)
+        XCTAssertEqual(adManager.timeoutInterval, 1.5)
+    }
+
+    func testSlowAdRequestTimesOutAtTheDeadline() async {
+        let original = (adManager.client, adManager.timeoutInterval)
+        defer { (adManager.client, adManager.timeoutInterval) = original }
+
+        let mock = MockHTTPClient(postResult: .success(nil))
+        mock.postDelay = 2
+        adManager.client = mock
+        adManager.timeoutInterval = 0.2
+        adManager.configure(hostname: "https://platform-stage.gowit.com", marketplaceId: "TEST_MARKETPLACE_UUID")
+
+        let start = Date()
+        do {
+            _ = try await adManager.getAds(placements: [PlacementRequest(placementId: 1)], sessionId: "test-session")
+            XCTFail("Expected a timeout")
+        } catch AdError.http(error: .timeout) {
+            // Expected
+        } catch {
+            XCTFail("Expected AdError.http(.timeout) but got \(error)")
+        }
+        XCTAssertLessThan(Date().timeIntervalSince(start), 1, "The request should end at the deadline, not when the server answers")
+    }
+
+    func testFastAdRequestFinishesBeforeTheDeadline() async throws {
+        let original = (adManager.client, adManager.timeoutInterval)
+        defer { (adManager.client, adManager.timeoutInterval) = original }
+
+        let mock = MockHTTPClient(postResult: .success(nil))
+        mock.postDelay = 0.05
+        adManager.client = mock
+        adManager.timeoutInterval = 1
+        adManager.configure(hostname: "https://platform-stage.gowit.com", marketplaceId: "TEST_MARKETPLACE_UUID")
+
+        let response = try await adManager.getAds(placements: [PlacementRequest(placementId: 1)], sessionId: "test-session")
+        XCTAssertEqual(response.placements?.count, 0, "204 No Content maps to an empty response")
+        XCTAssertEqual(mock.lastPostTimeout, 1)
+    }
+
+    func testZeroTimeoutTurnsTheDeadlineOff() async throws {
+        let original = (adManager.client, adManager.timeoutInterval)
+        defer { (adManager.client, adManager.timeoutInterval) = original }
+
+        let mock = MockHTTPClient(postResult: .success(nil))
+        mock.postDelay = 0.3
+        adManager.client = mock
         adManager.timeoutInterval = 0
-        XCTAssertEqual(adManager.timeoutInterval, 0)
+        adManager.configure(hostname: "https://platform-stage.gowit.com", marketplaceId: "TEST_MARKETPLACE_UUID")
 
-        // Reset to default
-        adManager.timeoutInterval = 60
+        _ = try await adManager.getAds(placements: [PlacementRequest(placementId: 1)], sessionId: "test-session")
+        XCTAssertEqual(mock.lastPostTimeout, AdManager.fallbackNetworkTimeout)
     }
 }

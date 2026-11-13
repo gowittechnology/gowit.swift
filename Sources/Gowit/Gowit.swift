@@ -44,6 +44,22 @@ public class Gowit: GowitProtocol {
         EventManager.shared.configure(hostname: hostname, marketplaceId: marketplaceId, autoImpressionEnabled: autoImpressionEnabled)
     }
 
+    // MARK: - Ad Request Timeout
+
+    /// Default total time allowed for one ad request: 600 ms.
+    public static let defaultAdRequestTimeout: TimeInterval = AdManager.defaultTimeoutInterval
+
+    /// Total time allowed for one ad request, from sending it to receiving the full response.
+    /// Applies to every `getAds` call and to `SponsoredDisplayView`. When it runs out, the request
+    /// is cancelled, `getAds` throws `AdError.http(error: .timeout)`, and `SponsoredDisplayView`
+    /// reports `.error` and shows nothing. Requests are not retried.
+    /// Defaults to `defaultAdRequestTimeout` (600 ms). Set to `0` or less to turn the deadline off.
+    /// Event requests are not affected.
+    public var adRequestTimeout: TimeInterval {
+        get { AdManager.shared.timeoutInterval }
+        set { AdManager.shared.timeoutInterval = newValue }
+    }
+
     // MARK: - Ad Request Methods
 
     /// Request ads for multiple placements

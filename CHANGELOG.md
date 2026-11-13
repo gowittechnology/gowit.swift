@@ -4,6 +4,20 @@ All notable changes to the Gowit Swift SDK are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project follows [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+- `Gowit.shared.adRequestTimeout`: total time allowed for one ad request, from sending it to
+  receiving the full response. Applies to every `getAds` call and to `SponsoredDisplayView`.
+  When it runs out, the request is cancelled and `getAds` throws `AdError.http(error: .timeout)`;
+  `SponsoredDisplayView` reports `.error` and shows nothing. Set to `0` or less to turn it off.
+- `Gowit.defaultAdRequestTimeout` (600 ms).
+
+### Changed
+- Ad requests now time out after 600 ms by default, measured over the whole request.
+  Previously they used a 60-second network idle timeout that apps could not change.
+  Event requests keep their 30-second timeout. Requests are still not retried.
+
 ## [1.1.0] - 2026-11-03
 
 ### Added

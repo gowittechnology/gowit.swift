@@ -6,10 +6,33 @@ class AdManager {
         client = HTTPClient()
     }
 
+    /// Default total time allowed for one ad request.
+    static let defaultTimeoutInterval: TimeInterval = 0.6
+    /// Network timeout used when the SDK deadline is turned off (`timeoutInterval <= 0`).
+    static let fallbackNetworkTimeout: TimeInterval = 60
+
     private var url: URL?
-    private var client: HTTPClientProtocol
+    var client: HTTPClientProtocol
     private var marketplaceId: String = "MARKETPLACE_UUID"
-    public var timeoutInterval: TimeInterval = 60
+
+    private let timeoutLock = NSLock()
+    private var storedTimeoutInterval: TimeInterval = AdManager.defaultTimeoutInterval
+
+    /// Total time allowed for one ad request, from sending it to receiving the full response.
+    /// When it runs out, the request is cancelled and `getAds` throws
+    /// `AdError.http(error: .timeout)`. Set to `0` or less to turn the SDK deadline off.
+    var timeoutInterval: TimeInterval {
+        get {
+            timeoutLock.lock()
+            defer { timeoutLock.unlock() }
+            return storedTimeoutInterval
+        }
+        set {
+            timeoutLock.lock()
+            storedTimeoutInterval = newValue
+            timeoutLock.unlock()
+        }
+    }
 
     public func configure(hostname: String, marketplaceId: String) {
         self.marketplaceId = marketplaceId
@@ -48,14 +71,7 @@ class AdManager {
         }
 
         // Make the request
-        let result: Result<Data?, NetworkFailure>
-        do {
-            let data = try await client.asyncPost(url: url, data: requestData, timeoutInterval: timeoutInterval)
-            result = .success(data)
-        } catch {
-            result = .failure(error)
-        }
-
+        let result = await post(url: url, data: requestData)
         return try processResponse(result: result)
     }
 
@@ -75,15 +91,43 @@ class AdManager {
         }
 
         // Make the request
-        let result: Result<Data?, NetworkFailure>
-        do {
-            let data = try await client.asyncPost(url: url, data: requestData, timeoutInterval: timeoutInterval)
-            result = .success(data)
-        } catch {
-            result = .failure(error)
+        let result = await post(url: url, data: requestData)
+        return try processResponse(result: result)
+    }
+
+    /// Sends the request and cancels it when `timeoutInterval` runs out.
+    private func post(url: URL, data: Data) async -> Result<Data?, NetworkFailure> {
+        let timeout = timeoutInterval
+        let client = self.client
+
+        guard timeout > 0 else {
+            do {
+                return .success(try await client.asyncPost(url: url, data: data, timeoutInterval: Self.fallbackNetworkTimeout))
+            } catch {
+                return .failure(error)
+            }
         }
 
-        return try processResponse(result: result)
+        do {
+            let responseData = try await withThrowingTaskGroup(of: Data?.self) { group -> Data? in
+                group.addTask {
+                    try await client.asyncPost(url: url, data: data, timeoutInterval: timeout)
+                }
+                group.addTask {
+                    try await Task.sleep(nanoseconds: UInt64(timeout * 1_000_000_000))
+                    throw NetworkFailure.timeout(context: NetworkContext(endpoint: url.absoluteString, method: .POST))
+                }
+                // Whichever finishes first wins; the other task is cancelled.
+                defer { group.cancelAll() }
+                guard let first = try await group.next() else { return nil }
+                return first
+            }
+            return .success(responseData)
+        } catch let failure as NetworkFailure {
+            return .failure(failure)
+        } catch {
+            return .failure(.connectivity(underlying: error, context: NetworkContext(endpoint: url.absoluteString, method: .POST)))
+        }
     }
 
     private func processResponse(result: Result<Data?, NetworkFailure>) throws -> AdResponse {
