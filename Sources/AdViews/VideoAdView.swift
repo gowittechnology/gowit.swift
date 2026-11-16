@@ -12,6 +12,7 @@ public struct VideoAdView: View {
     private let onAdClicked: ((URL) -> Void)?
     private let onError: ((VASTError) -> Void)?
     private let onStateChanged: ((VideoAdState) -> Void)?
+    private let onMuteChanged: ((Bool) -> Void)?
     @StateObject private var viewModel: VideoAdViewModel
 
     public init(
@@ -22,6 +23,8 @@ public struct VideoAdView: View {
         onAdCompleted: (() -> Void)? = nil,
         onAdClicked: ((URL) -> Void)? = nil,
         onError: ((VASTError) -> Void)? = nil,
+        onMuteChanged: ((Bool) -> Void)? = nil,
+        // Keep last: an unlabeled trailing closure binds here
         onStateChanged: ((VideoAdState) -> Void)? = nil
     ) {
         self.vastURL = vastURL
@@ -32,6 +35,7 @@ public struct VideoAdView: View {
         self.onAdClicked = onAdClicked
         self.onError = onError
         self.onStateChanged = onStateChanged
+        self.onMuteChanged = onMuteChanged
 
         _viewModel = StateObject(wrappedValue: VideoAdViewModel(
             vastURL: vastURL,
@@ -219,6 +223,7 @@ public struct VideoAdView: View {
         viewModel.onAdClicked = onAdClicked
         viewModel.onError = onError
         viewModel.onStateChanged = onStateChanged
+        viewModel.onMuteChanged = onMuteChanged
     }
 
     private func handleTap() {
@@ -239,6 +244,7 @@ final class VideoAdViewModel: ObservableObject {
     var onAdClicked: ((URL) -> Void)?
     var onError: ((VASTError) -> Void)?
     var onStateChanged: ((VideoAdState) -> Void)?
+    var onMuteChanged: ((Bool) -> Void)?
     private let vastURL: URL
     private let configuration: VideoAdConfiguration
     private let parser = VASTParser()
@@ -316,6 +322,7 @@ final class VideoAdViewModel: ObservableObject {
     }
     func toggleMute() {
         isMuted = playbackController.toggleMute(player: player, isMuted: isMuted)
+        onMuteChanged?(isMuted)
         showMuteButtonBriefly()
     }
 

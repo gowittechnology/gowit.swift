@@ -1,3 +1,3 @@
 import Foundation
 
-let gowitVersion = "1.1.0"
+let gowitVersion = "1.2.0"
